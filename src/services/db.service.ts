@@ -62,11 +62,10 @@ export class DbService {
   clients = computed(() => this._clients());
   appointments = computed(() => this._appointments());
 
-  // White Label: Computed signals robustos
   brandColor = computed(() => this._business()?.branding_color || '#4f46e5');
   
   brandContrastColor = computed(() => {
-    const hex = this.brandColor().replace('#', '');
+    const hex = (this.brandColor() || '#4f46e5').replace('#', '');
     if (hex.length !== 6) return '#ffffff';
     const r = parseInt(hex.substr(0, 2), 16);
     const g = parseInt(hex.substr(2, 2), 16);
@@ -101,11 +100,17 @@ export class DbService {
   }
 
   private isConfigured(): boolean {
-    return !!process.env['SUPABASE_URL'] && !!process.env['SUPABASE_KEY'];
+    const url = process.env['SUPABASE_URL'];
+    const key = process.env['SUPABASE_KEY'];
+    return !!url && !!key && !url.includes('placeholder');
   }
 
   async loadAllData(businessId: string) {
-    if (!this.isConfigured()) return;
+    if (!this.isConfigured()) {
+      console.warn("DbService: Supabase não configurado corretamente. Rodando em modo local.");
+      return;
+    }
+    
     try {
       const [bus, profs, servs, clis, apps] = await Promise.all([
         this.supabase.client.from('businesses').select('*').eq('id', businessId).maybeSingle(),
@@ -121,12 +126,14 @@ export class DbService {
       this._clients.set(clis.data || []);
       this._appointments.set(apps.data || []);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Erro ao carregar dados do Supabase:', error);
     }
   }
 
   async saveBusiness(data: Partial<Business>) {
     const bid = this.getActiveBusinessId();
+    if (!this.isConfigured()) return { saved: null, error: 'Not Configured' };
+
     const { data: saved, error } = await this.supabase.client
       .from('businesses')
       .update(data)
@@ -138,7 +145,6 @@ export class DbService {
     return { saved, error };
   }
 
-  // Métodos auxiliares de nomeação (UX White Label)
   getClientName(id: string) {
     return this._clients().find(c => c.id === id)?.name || 'Cliente';
   }
@@ -151,9 +157,13 @@ export class DbService {
     return this._professionals().find(p => p.id === id)?.name || 'Profissional';
   }
 
-  // CRUD Methods (Respeitando Multi-tenancy via business_id)
   async addClient(client: Omit<Client, 'id' | 'business_id'>) {
     const bid = this.getActiveBusinessId();
+    if (!this.isConfigured()) {
+      const mock: Client = { ...client, id: 'mock-'+Date.now(), business_id: bid };
+      this._clients.update(p => [...p, mock]);
+      return { data: mock, error: null };
+    }
     const { data, error } = await this.supabase.client
       .from('clients')
       .insert({ ...client, business_id: bid })
@@ -165,6 +175,11 @@ export class DbService {
 
   async addAppointment(app: Omit<Appointment, 'id' | 'business_id'>) {
     const bid = this.getActiveBusinessId();
+    if (!this.isConfigured()) {
+      const mock: Appointment = { ...app, id: 'mock-'+Date.now(), business_id: bid };
+      this._appointments.update(p => [...p, mock]);
+      return { data: mock, error: null };
+    }
     const { data, error } = await this.supabase.client
       .from('appointments')
       .insert({ ...app, business_id: bid })
@@ -175,43 +190,45 @@ export class DbService {
   }
 
   async updateAppointmentStatus(id: string, status: string) {
+    this._appointments.update(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
+    if (!this.isConfigured()) return;
     const bid = this.getActiveBusinessId();
-    const { error } = await this.supabase.client
+    await this.supabase.client
       .from('appointments')
       .update({ status })
       .eq('id', id)
       .eq('business_id', bid);
-    if (!error) {
-      this._appointments.update(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
-    }
   }
 
   async updateAppointment(app: Appointment) {
+    this._appointments.update(prev => prev.map(a => a.id === app.id ? app : a));
+    if (!this.isConfigured()) return;
     const bid = this.getActiveBusinessId();
-    const { error } = await this.supabase.client
+    await this.supabase.client
       .from('appointments')
       .update(app)
       .eq('id', app.id)
       .eq('business_id', bid);
-    if (!error) {
-      this._appointments.update(prev => prev.map(a => a.id === app.id ? app : a));
-    }
   }
 
   async deleteAppointment(id: string) {
+    this._appointments.update(prev => prev.filter(a => a.id !== id));
+    if (!this.isConfigured()) return;
     const bid = this.getActiveBusinessId();
-    const { error } = await this.supabase.client
+    await this.supabase.client
       .from('appointments')
       .delete()
       .eq('id', id)
       .eq('business_id', bid);
-    if (!error) {
-      this._appointments.update(prev => prev.filter(a => a.id !== id));
-    }
   }
 
   async addService(service: Omit<ServiceItem, 'id' | 'business_id'>) {
     const bid = this.getActiveBusinessId();
+    if (!this.isConfigured()) {
+      const mock: ServiceItem = { ...service, id: 'mock-s-'+Date.now(), business_id: bid };
+      this._services.update(p => [...p, mock]);
+      return { data: mock, error: null };
+    }
     const { data, error } = await this.supabase.client
       .from('services')
       .insert({ ...service, business_id: bid })
@@ -222,31 +239,34 @@ export class DbService {
   }
 
   async updateService(service: ServiceItem) {
+    this._services.update(prev => prev.map(s => s.id === service.id ? service : s));
+    if (!this.isConfigured()) return;
     const bid = this.getActiveBusinessId();
-    const { error } = await this.supabase.client
+    await this.supabase.client
       .from('services')
       .update(service)
       .eq('id', service.id)
       .eq('business_id', bid);
-    if (!error) {
-      this._services.update(prev => prev.map(s => s.id === service.id ? service : s));
-    }
   }
 
   async deleteService(id: string) {
+    this._services.update(prev => prev.filter(s => s.id !== id));
+    if (!this.isConfigured()) return;
     const bid = this.getActiveBusinessId();
-    const { error } = await this.supabase.client
+    await this.supabase.client
       .from('services')
       .delete()
       .eq('id', id)
       .eq('business_id', bid);
-    if (!error) {
-      this._services.update(prev => prev.filter(s => s.id !== id));
-    }
   }
 
   async addProfessional(prof: Omit<Professional, 'id' | 'business_id'>) {
     const bid = this.getActiveBusinessId();
+    if (!this.isConfigured()) {
+      const mock: Professional = { ...prof, id: 'mock-p-'+Date.now(), business_id: bid };
+      this._professionals.update(p => [...p, mock]);
+      return { data: mock, error: null };
+    }
     const { data, error } = await this.supabase.client
       .from('professionals')
       .insert({ ...prof, business_id: bid })
@@ -257,27 +277,25 @@ export class DbService {
   }
 
   async updateProfessional(prof: Professional) {
+    this._professionals.update(prev => prev.map(p => p.id === prof.id ? prof : p));
+    if (!this.isConfigured()) return;
     const bid = this.getActiveBusinessId();
-    const { error } = await this.supabase.client
+    await this.supabase.client
       .from('professionals')
       .update(prof)
       .eq('id', prof.id)
       .eq('business_id', bid);
-    if (!error) {
-      this._professionals.update(prev => prev.map(p => p.id === prof.id ? prof : p));
-    }
   }
 
   async deleteProfessional(id: string) {
+    this._professionals.update(prev => prev.filter(p => p.id !== id));
+    if (!this.isConfigured()) return;
     const bid = this.getActiveBusinessId();
-    const { error } = await this.supabase.client
+    await this.supabase.client
       .from('professionals')
       .delete()
       .eq('id', id)
       .eq('business_id', bid);
-    if (!error) {
-      this._professionals.update(prev => prev.filter(p => p.id !== id));
-    }
   }
 
   getTodayStats() {
@@ -315,7 +333,10 @@ export class DbService {
   }
 
   async createInitialSetup(businessName: string, profName: string, services: any[]) {
-    if (!this.isConfigured()) throw new Error('Supabase não configurado.');
+    if (!this.isConfigured()) {
+       console.warn("createInitialSetup: Supabase não configurado. Simulando ID da empresa.");
+       return 'mock-biz-' + Date.now();
+    }
     const { data: bus, error: bErr } = await this.supabase.client
       .from('businesses')
       .insert({ name: businessName, hours: '08:00 - 18:00', branding_color: '#4f46e5' })

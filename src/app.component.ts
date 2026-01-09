@@ -1,5 +1,5 @@
 
-import { Component, inject, computed, effect } from '@angular/core';
+import { Component, inject, computed, effect, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { DbService } from './services/db.service';
@@ -8,98 +8,110 @@ import { DbService } from './services/db.service';
   selector: 'app-root',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+    <div class="min-h-screen bg-white">
       
       @if (auth.isAuthenticated()) {
-        <!-- Sidebar Desktop (White Label) -->
-        <aside class="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col h-screen sticky top-0">
-          <div class="p-6">
-            <div class="flex items-center gap-3 mb-8">
-              @if (db.business()?.logo_url) {
-                <img [src]="db.business()?.logo_url" class="w-10 h-10 rounded-xl object-cover shadow-sm">
-              } @else {
+        <div class="flex flex-col md:flex-row min-h-screen bg-slate-50">
+          <!-- Sidebar Desktop -->
+          <aside class="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col h-screen sticky top-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            <div class="p-6">
+              <div class="flex items-center gap-3 mb-10">
+                @if (db.business()?.logo_url) {
+                  <img [src]="db.business()?.logo_url" class="w-10 h-10 rounded-xl object-cover shadow-sm">
+                } @else {
+                  <div [style.backgroundColor]="db.brandColor()" 
+                       class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shrink-0">
+                    <i data-lucide="sparkles" [style.color]="db.brandContrastColor()" class="w-6 h-6 text-white"></i>
+                  </div>
+                }
+                <span class="font-black text-xl text-slate-800 tracking-tighter italic shrink-0">
+                  {{ db.business()?.name || 'BelezaRara' }}
+                </span>
+              </div>
+
+              <nav class="space-y-1">
+                @for (item of menuItems; track item.link) {
+                  <a [routerLink]="item.link" 
+                     routerLinkActive="active-nav"
+                     [style.--brand-color]="db.brandColor()"
+                     class="flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 font-bold text-sm hover:bg-slate-50 transition-all group nav-item">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 group-hover:bg-white transition-colors">
+                       <i [attr.data-lucide]="item.icon" class="w-5 h-5"></i>
+                    </div>
+                    {{ item.label }}
+                  </a>
+                }
+              </nav>
+            </div>
+            
+            <div class="mt-auto p-6 border-t border-slate-100">
+              <div class="mb-4 p-4 bg-slate-50 rounded-2xl flex items-center gap-3 border border-slate-100">
                 <div [style.backgroundColor]="db.brandColor()" 
-                     class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shrink-0">
-                  <i data-lucide="sparkles" [style.color]="db.brandContrastColor()" class="w-6 h-6"></i>
+                     [style.color]="db.brandContrastColor()"
+                     class="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm uppercase shadow-sm">
+                  {{ auth.currentUser()?.name?.charAt(0) }}
                 </div>
-              }
-              <span class="font-bold text-lg text-slate-800 tracking-tight truncate">
-                {{ db.business()?.name || 'White Label' }}
-              </span>
-            </div>
-
-            <nav class="space-y-1">
-              @for (item of menuItems; track item.link) {
-                <a [routerLink]="item.link" 
-                   routerLinkActive="active-nav"
-                   [style.--brand-color]="db.brandColor()"
-                   class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-medium hover:bg-slate-50 transition-all nav-item">
-                  <i [attr.data-lucide]="item.icon" class="w-5 h-5"></i>
-                  {{ item.label }}
-                </a>
-              }
-            </nav>
-          </div>
-          
-          <div class="mt-auto p-6 border-t border-slate-100">
-            <div class="mb-4 px-4 py-3 bg-slate-50 rounded-2xl flex items-center gap-3">
-              <div [style.backgroundColor]="db.brandColor()" 
-                   [style.color]="db.brandContrastColor()"
-                   class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase">
-                {{ auth.currentUser()?.name?.charAt(0) }}
+                <div class="overflow-hidden">
+                  <p class="text-sm font-black text-slate-800 truncate">{{ auth.currentUser()?.name }}</p>
+                  <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{{ auth.currentUser()?.role }}</p>
+                </div>
               </div>
-              <div class="overflow-hidden">
-                <p class="text-xs font-bold text-slate-700 truncate">{{ auth.currentUser()?.name }}</p>
-                <p class="text-[10px] text-slate-400 font-medium truncate uppercase tracking-tighter">{{ auth.currentUser()?.role }}</p>
-              </div>
+              <button (click)="auth.logout()" class="flex items-center gap-3 px-4 py-3 w-full text-rose-500 font-bold text-sm hover:bg-rose-50 rounded-xl transition-all active:scale-95">
+                <i data-lucide="log-out" class="w-5 h-5"></i>
+                Encerrar Sessão
+              </button>
             </div>
-            <button (click)="auth.logout()" class="flex items-center gap-3 px-4 py-2 w-full text-rose-500 font-bold text-sm hover:bg-rose-50 rounded-xl transition-colors">
-              <i data-lucide="log-out" class="w-5 h-5"></i>
-              Sair do Sistema
-            </button>
-          </div>
-        </aside>
+          </aside>
 
-        <!-- Cabeçalho Mobile -->
-        <div class="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-100 px-6 py-4 z-50 flex items-center gap-3">
-          <div [style.backgroundColor]="db.brandColor()" 
-               class="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm shrink-0">
-             <i data-lucide="sparkles" [style.color]="db.brandContrastColor()" class="w-4 h-4"></i>
+          <!-- Cabeçalho Mobile -->
+          <div class="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-slate-100 px-6 py-4 z-50 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+              <div [style.backgroundColor]="db.brandColor()" class="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm shrink-0">
+                 <i data-lucide="sparkles" [style.color]="db.brandContrastColor()" class="w-4 h-4 text-white"></i>
+              </div>
+              <span class="font-black text-slate-800 tracking-tighter italic truncate text-lg">{{ db.business()?.name || 'BelezaRara' }}</span>
+            </div>
+            <button (click)="auth.logout()" class="p-2 text-rose-500"><i data-lucide="log-out" class="w-5 h-5"></i></button>
           </div>
-          <span class="font-bold text-slate-800 tracking-tight truncate">{{ db.business()?.name || 'Sistema' }}</span>
+
+          <!-- Navegação Mobile Bottom -->
+          <nav class="fixed bottom-0 w-full bg-white border-t border-slate-100 px-6 py-3 flex justify-between items-center z-50 md:hidden shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
+            @for (item of menuItems; track item.link) {
+              <a [routerLink]="item.link" 
+                 routerLinkActive="active-mobile-nav"
+                 [style.--brand-color]="db.brandColor()"
+                 class="flex flex-col items-center text-slate-400 mobile-nav-item px-2 py-1 rounded-xl">
+                <i [attr.data-lucide]="item.icon" class="w-6 h-6"></i>
+                <span class="text-[9px] mt-1 font-black uppercase tracking-tighter">{{ item.label }}</span>
+              </a>
+            }
+          </nav>
+
+          <!-- Conteúdo Principal App -->
+          <main class="flex-1 w-full max-w-6xl mx-auto md:px-8 pt-20 pb-28 md:pb-10 overflow-y-auto no-scrollbar">
+            <router-outlet></router-outlet>
+          </main>
         </div>
-
-        <!-- Navegação Mobile Bottom -->
-        <nav class="fixed bottom-0 w-full bg-white border-t border-slate-100 px-6 py-3 flex justify-between items-center z-50 md:hidden shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
-          @for (item of menuItems; track item.link) {
-            <a [routerLink]="item.link" 
-               routerLinkActive="active-mobile-nav"
-               [style.--brand-color]="db.brandColor()"
-               class="flex flex-col items-center text-slate-400 mobile-nav-item">
-              <i [attr.data-lucide]="item.icon" class="w-6 h-6"></i>
-              <span class="text-[10px] mt-1 font-bold">{{ item.label }}</span>
-            </a>
-          }
-        </nav>
+      } @else {
+        <!-- Modo Público: Landing / Login -->
+        <main class="w-full h-full min-h-screen">
+          <router-outlet></router-outlet>
+        </main>
       }
-
-      <main class="flex-1 w-full max-w-6xl mx-auto md:px-8 pb-24 md:pb-8 overflow-y-auto no-scrollbar"
-            [class.pt-20]="auth.isAuthenticated()">
-        <router-outlet></router-outlet>
-      </main>
     </div>
 
     <style>
       .active-nav {
         background-color: var(--brand-color) !important;
         color: white !important;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.15);
+      }
+      .active-nav div {
+        background-color: rgba(255,255,255,0.2) !important;
       }
       .active-mobile-nav {
         color: var(--brand-color) !important;
-      }
-      .nav-item:hover {
-        color: var(--brand-color);
+        background-color: var(--brand-color-light, rgba(79, 70, 229, 0.05));
       }
     </style>
   `
@@ -119,9 +131,10 @@ export class AppComponent {
   constructor() {
     effect(() => {
       const businessName = this.db.business()?.name;
-      document.title = businessName ? `${businessName} - Gestão` : 'BelezaSimples - Gestão Profissional';
+      document.title = businessName ? `${businessName} - Gestão` : 'BelezaRara - Gestão Profissional';
     });
 
+    // Refresh icons lucide
     setInterval(() => {
       if ((window as any).lucide) (window as any).lucide.createIcons();
     }, 500);
