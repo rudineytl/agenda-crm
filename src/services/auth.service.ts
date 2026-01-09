@@ -14,9 +14,16 @@ export interface User {
 export class AuthService {
   private router = inject(Router);
   private _currentUser = signal<User | null>(null);
+  private _isInitialized = signal(false);
+
   currentUser = this._currentUser.asReadonly();
+  isInitialized = this._isInitialized.asReadonly();
 
   constructor() {
+    this.init();
+  }
+
+  private init() {
     const saved = localStorage.getItem('bs_user');
     if (saved) {
       try {
@@ -25,23 +32,21 @@ export class AuthService {
         localStorage.removeItem('bs_user');
       }
     }
+    // Pequeno delay para garantir que o sistema de signals e rotas esteja pronto
+    setTimeout(() => this._isInitialized.set(true), 500);
   }
 
   login(email: string) {
-    // No MVP, simulamos a busca de um usuário. 
-    // Em um SaaS real, buscaríamos na tabela 'profiles' do Supabase.
     const mockUser: User = { 
       id: 'u-' + Math.random().toString(36).substr(2, 5), 
       email, 
-      name: 'Usuário',
+      name: email.split('@')[0],
       role: 'admin'
     };
     
     this._currentUser.set(mockUser);
     localStorage.setItem('bs_user', JSON.stringify(mockUser));
     
-    // Verificamos se este e-mail já tem uma empresa vinculada
-    // Para o MVP, usamos localStorage para simular o vínculo
     const savedBusinessId = localStorage.getItem(`biz_${email}`);
     
     if (savedBusinessId) {
@@ -77,8 +82,6 @@ export class AuthService {
       const updated = { ...user, businessId };
       this._currentUser.set(updated);
       localStorage.setItem('bs_user', JSON.stringify(updated));
-      
-      // Vinculamos permanentemente este e-mail a esta empresa no MVP
       localStorage.setItem(`biz_${user.email}`, businessId);
     }
   }

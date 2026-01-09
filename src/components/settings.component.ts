@@ -15,7 +15,12 @@ import { FormsModule } from '@angular/forms';
       <div class="max-w-2xl space-y-8">
         <!-- White Label / Branding Section -->
         <section>
-          <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 ml-1">Identidade do Sistema (White Label)</h2>
+          <div class="flex justify-between items-end mb-4 ml-1">
+            <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Identidade do Sistema (White Label)</h2>
+            @if (saveSuccess()) {
+              <span class="text-[10px] font-bold text-emerald-500 uppercase animate-bounce">✓ Salvo com sucesso!</span>
+            }
+          </div>
           <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -26,7 +31,7 @@ import { FormsModule } from '@angular/forms';
                 <label class="block text-xs font-bold text-slate-500 mb-2">Cor Principal da Marca</label>
                 <div class="flex gap-3">
                   <input type="color" [(ngModel)]="brandingForm.branding_color" class="w-12 h-12 rounded-xl border-none p-1 bg-slate-50 cursor-pointer">
-                  <input type="text" [(ngModel)]="brandingForm.branding_color" class="flex-1 px-4 py-3 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-100 font-mono text-sm">
+                  <input type="text" [(ngModel)]="brandingForm.branding_color" class="flex-1 px-4 py-3 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-100 font-mono text-sm uppercase">
                 </div>
               </div>
             </div>
@@ -37,10 +42,17 @@ import { FormsModule } from '@angular/forms';
             </div>
 
             <button (click)="saveBranding()" 
+                    [disabled]="isSaving()"
                     [style.backgroundColor]="db.brandColor()"
                     [style.color]="db.brandContrastColor()"
-                    class="w-full py-4 rounded-2xl font-bold shadow-lg hover:brightness-110 transition-all active:scale-[0.99]">
-              Atualizar Identidade Visual
+                    class="w-full py-4 rounded-2xl font-bold shadow-lg hover:brightness-110 transition-all active:scale-[0.99] flex items-center justify-center gap-3 disabled:opacity-50">
+              @if (isSaving()) {
+                <div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Salvando...
+              } @else {
+                <i data-lucide="save" class="w-5 h-5"></i>
+                Atualizar Identidade Visual
+              }
             </button>
           </div>
         </section>
@@ -65,7 +77,7 @@ import { FormsModule } from '@angular/forms';
         <section>
           <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 ml-1">Equipe & Serviços</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button (click)="router.navigate(['/servicos'])" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between hover:border-slate-200 transition-all group">
+            <button (click)="router.navigate(['/servicos'])" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between hover:border-slate-200 transition-all group text-left">
               <div class="flex items-center gap-4">
                 <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
                   <i data-lucide="scissors" class="w-6 h-6"></i>
@@ -75,7 +87,7 @@ import { FormsModule } from '@angular/forms';
               <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
             </button>
             
-            <button (click)="router.navigate(['/profissionais'])" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between hover:border-slate-200 transition-all group">
+            <button (click)="router.navigate(['/profissionais'])" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between hover:border-slate-200 transition-all group text-left">
               <div class="flex items-center gap-4">
                 <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
                   <i data-lucide="users" class="w-6 h-6"></i>
@@ -87,12 +99,12 @@ import { FormsModule } from '@angular/forms';
           </div>
         </section>
 
-        <button (click)="auth.logout()" class="w-full text-rose-500 font-bold p-6 bg-rose-50 rounded-3xl mt-12 hover:bg-rose-100 transition-all">
+        <button (click)="auth.logout()" class="w-full text-rose-500 font-bold p-6 bg-rose-50 rounded-3xl mt-12 hover:bg-rose-100 transition-all active:scale-[0.98]">
           Sair do Sistema
         </button>
       </div>
       
-      <p class="text-center text-[10px] text-slate-300 mt-12 font-bold tracking-widest uppercase">Versão 2.0.0 • Micro SaaS Pro</p>
+      <p class="text-center text-[10px] text-slate-300 mt-12 font-bold tracking-widest uppercase">Versão 2.1.0 • Agenda - CRM Pro</p>
     </div>
   `
 })
@@ -100,6 +112,9 @@ export class SettingsComponent {
   db = inject(DbService);
   auth = inject(AuthService);
   router = inject(Router);
+
+  isSaving = signal(false);
+  saveSuccess = signal(false);
 
   brandingForm = { 
     name: this.db.business()?.name || '', 
@@ -112,9 +127,21 @@ export class SettingsComponent {
   };
 
   async saveBranding() {
-    await this.db.saveBusiness({ 
-      ...this.brandingForm, 
-      ...this.businessForm 
-    });
+    this.isSaving.set(true);
+    this.saveSuccess.set(false);
+    
+    try {
+      await this.db.saveBusiness({ 
+        ...this.brandingForm, 
+        ...this.businessForm 
+      });
+      
+      this.saveSuccess.set(true);
+      setTimeout(() => this.saveSuccess.set(false), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this.isSaving.set(false);
+    }
   }
 }
