@@ -26,7 +26,7 @@ import { FormsModule } from '@angular/forms';
         </button>
       </header>
 
-      <!-- AI Insight Card (Multi-color white label) -->
+      <!-- AI Insight Card -->
       @if (aiInsight()) {
         <div class="mb-8 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden"
              [style.backgroundColor]="db.brandColor()">
@@ -71,20 +71,22 @@ import { FormsModule } from '@angular/forms';
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         @for (app of todayAppointments(); track app.id) {
-          <div class="bg-white border border-slate-100 p-5 rounded-2xl flex items-center gap-4 group transition-all hover:border-slate-200 cursor-pointer" 
+          <div class="bg-white border border-slate-100 p-5 rounded-3xl flex items-center gap-4 group transition-all hover:border-slate-200 cursor-pointer shadow-sm" 
                [class.opacity-60]="app.status === 'completed'"
                (click)="selectApp(app)">
-            <div class="text-center min-w-[60px]">
-              <p class="text-lg font-bold" [style.color]="db.brandColor()">{{ app.time }}</p>
-              <p class="text-[10px] text-slate-400 font-bold uppercase">Hoje</p>
+            <div class="text-center min-w-[70px]">
+              <p class="text-xl font-black" [style.color]="db.brandColor()">{{ app.time }}</p>
+              <p class="text-[9px] text-slate-400 font-black uppercase tracking-tighter">Hoje</p>
             </div>
             <div class="flex-1 border-l border-slate-100 pl-5">
-              <p class="font-bold text-slate-800 text-lg leading-tight">{{ db.getClientName(app.client_id) }}</p>
-              <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-md text-slate-400 font-bold uppercase tracking-wider">
+              <p class="font-bold text-slate-800 text-lg leading-tight mb-1">{{ db.getClientName(app.client_id) }}</p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <!-- Profissional em destaque na frente -->
+                <span class="text-[10px] bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md text-slate-500 font-bold uppercase tracking-wider">
                   {{ db.getProfessionalName(app.professional_id) }}
                 </span>
-                <span class="text-xs text-slate-600 font-medium">
+                <span class="text-xs text-slate-400 font-medium">—</span>
+                <span class="text-xs text-slate-600 font-semibold">
                   {{ db.getServiceName(app.service_id) }}
                 </span>
               </div>
@@ -95,7 +97,7 @@ import { FormsModule } from '@angular/forms';
                 <i data-lucide="check" class="w-6 h-6"></i>
               </button>
             } @else if (app.status === 'completed') {
-               <div class="text-emerald-500">
+               <div class="text-emerald-500 pr-2">
                  <i data-lucide="check-circle" class="w-6 h-6"></i>
                </div>
             }
@@ -124,7 +126,7 @@ import { FormsModule } from '@angular/forms';
             <div class="space-y-5 mb-10">
               <div>
                 <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cliente</label>
-                <select [(ngModel)]="newApp.client_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium text-slate-700">
+                <select [(ngModel)]="newApp.client_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium text-slate-700 appearance-none">
                   <option value="" disabled>Escolha o cliente...</option>
                   @for (c of db.clients(); track c.id) {
                     <option [value]="c.id">{{ c.name }}</option>
@@ -134,7 +136,7 @@ import { FormsModule } from '@angular/forms';
 
               <div>
                 <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Serviço</label>
-                <select [(ngModel)]="newApp.service_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium text-slate-700">
+                <select [(ngModel)]="newApp.service_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium text-slate-700 appearance-none">
                   <option value="" disabled>Qual o serviço?</option>
                   @for (s of db.services(); track s.id) {
                     <option [value]="s.id">{{ s.name }} (R$ {{ s.price }})</option>
@@ -149,7 +151,7 @@ import { FormsModule } from '@angular/forms';
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Situação</label>
-                  <select [(ngModel)]="newApp.status" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
+                  <select [(ngModel)]="newApp.status" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700 appearance-none">
                     <option value="pending">Pendente</option>
                     <option value="confirmed">Confirmado</option>
                     <option value="completed">Concluído</option>

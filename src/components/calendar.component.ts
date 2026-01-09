@@ -12,7 +12,7 @@ import { FormsModule } from '@angular/forms';
     <div class="p-6 md:py-10">
       <header class="flex justify-between items-center mb-10">
         <div>
-          <h1 class="text-3xl font-bold text-slate-800">Agenda</h1>
+          <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Agenda</h1>
           <p class="text-slate-500 font-medium">{{ selectedDateFormatted() }}</p>
         </div>
         <div class="flex items-center gap-3">
@@ -40,13 +40,13 @@ import { FormsModule } from '@angular/forms';
               
               <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 @for (app of getAppsForHour(hour); track app.id) {
-                  <div (click)="selectApp(app)" class="bg-white border-l-4 p-4 rounded-r-2xl cursor-pointer shadow-sm hover:shadow-md transition-all active:scale-[0.98] border border-slate-100"
+                  <div (click)="selectApp(app)" class="bg-white border-l-4 p-4 rounded-r-3xl cursor-pointer shadow-sm hover:shadow-md transition-all active:scale-[0.98] border border-slate-100"
                     [class.border-indigo-500]="app.status === 'pending'"
                     [class.border-emerald-500]="app.status === 'confirmed' || app.status === 'completed'"
                     [class.border-rose-400]="app.status === 'cancelled'">
                     <div class="flex justify-between items-start mb-2">
                       <span class="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase"
-                        [class]="app.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'">
+                        [class]="app.status === 'confirmed' || app.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'">
                         {{ app.time }}
                       </span>
                       @if(app.status === 'completed') {
@@ -56,8 +56,10 @@ import { FormsModule } from '@angular/forms';
                       }
                     </div>
                     <p class="font-bold text-slate-800 text-base leading-tight">{{ db.getClientName(app.client_id) }}</p>
-                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                      <p class="text-[11px] font-bold uppercase tracking-wider" [style.color]="db.brandColor()">
+                    
+                    <div class="flex items-center gap-2 mt-2 flex-wrap">
+                      <!-- Profissional na frente -->
+                      <p class="text-[11px] font-black uppercase tracking-wider" [style.color]="db.brandColor()">
                         {{ db.getProfessionalName(app.professional_id) }}
                       </p>
                       <span class="text-[10px] text-slate-300">•</span>
@@ -75,6 +77,7 @@ import { FormsModule } from '@angular/forms';
         }
       </div>
 
+      <!-- Modal permanece igual para manter consistência -->
       @if (showModal()) {
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -123,7 +126,7 @@ import { FormsModule } from '@angular/forms';
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Profissional</label>
-                  <select [(ngModel)]="newApp.professional_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none">
+                  <select [(ngModel)]="newApp.professional_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none font-medium">
                     @for (p of db.professionals(); track p.id) {
                       <option [value]="p.id">{{ p.name }}</option>
                     }
@@ -167,7 +170,7 @@ import { FormsModule } from '@angular/forms';
       @if (showNewClientModal()) {
         <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div class="bg-white w-full max-w-xs rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h4 class="text-xl font-bold text-slate-800 mb-6">Novo Cliente</h4>
+            <h4 class="text-xl font-bold text-slate-800 mb-6 text-center">Novo Cliente</h4>
             <div class="space-y-4 mb-8">
               <input type="text" [(ngModel)]="clientForm.name" placeholder="Nome Completo" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium">
               <input type="tel" [(ngModel)]="clientForm.whatsapp" placeholder="(11) 99999-9999" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium">
