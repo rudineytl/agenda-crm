@@ -1,5 +1,5 @@
 
-import { Component, signal, inject, computed } from '@angular/core';
+import { Component, signal, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { DbService, Client, Appointment } from '../services/db.service';
 import { AuthService } from '../services/auth.service';
 import { FormsModule } from '@angular/forms';
@@ -13,6 +13,7 @@ interface ClientWithStats extends Client {
 @Component({
   selector: 'app-clients',
   imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-6 md:py-10">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -179,7 +180,7 @@ export class ClientsComponent {
     
     return this.db.clients().map(client => {
       const clientApps = appointments
-        .filter(a => a.clientId === client.id && a.status === 'completed')
+        .filter(a => a.client_id === client.id && a.status === 'completed')
         .sort((a, b) => b.date.localeCompare(a.date));
 
       let lastVisitDate: string | null = null;
@@ -250,14 +251,12 @@ export class ClientsComponent {
     this.showNewClientModal.set(true);
   }
 
-  saveNewClient() {
+  async saveNewClient() {
     if (!this.clientForm.name) return;
-    const bid = this.auth.currentUser()?.businessId;
-    if (!bid) return;
-    this.db.addClient({
-      id: 'c-' + Math.random().toString(36).substr(2, 5),
-      ...this.clientForm,
-      businessId: bid
+    await this.db.addClient({
+      name: this.clientForm.name,
+      whatsapp: this.clientForm.whatsapp,
+      notes: this.clientForm.notes
     });
     this.showNewClientModal.set(false);
   }

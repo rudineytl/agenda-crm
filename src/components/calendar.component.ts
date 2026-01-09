@@ -1,5 +1,5 @@
 
-import { Component, signal, inject, computed } from '@angular/core';
+import { Component, signal, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { DbService, Appointment, Client } from '../services/db.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-calendar',
   imports: [CommonModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-6 md:py-10">
       <header class="flex justify-between items-center mb-10">
@@ -54,11 +55,11 @@ import { FormsModule } from '@angular/forms';
                         </div>
                       }
                     </div>
-                    <p class="font-bold text-slate-800 text-base leading-tight">{{ db.getClientName(app.clientId) }}</p>
+                    <p class="font-bold text-slate-800 text-base leading-tight">{{ db.getClientName(app.client_id) }}</p>
                     <div class="flex items-center gap-2 mt-1.5">
-                      <p class="text-[11px] font-medium text-slate-500">{{ db.getServiceName(app.serviceId) }}</p>
+                      <p class="text-[11px] font-medium text-slate-500">{{ db.getServiceName(app.service_id) }}</p>
                       <span class="text-[10px] text-slate-300">•</span>
-                      <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{{ db.getProfessionalName(app.professionalId) }}</p>
+                      <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{{ db.getProfessionalName(app.professional_id) }}</p>
                     </div>
                   </div>
                 }
@@ -95,7 +96,7 @@ import { FormsModule } from '@angular/forms';
                   <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Cliente</label>
                   <button (click)="openNewClientModal()" class="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md hover:bg-indigo-100">+ NOVO</button>
                 </div>
-                <select [(ngModel)]="newApp.clientId" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none focus:ring-2 focus:ring-indigo-100 font-medium text-slate-800">
+                <select [(ngModel)]="newApp.client_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none focus:ring-2 focus:ring-indigo-100 font-medium text-slate-800">
                   <option value="" disabled>Selecione...</option>
                   @for (c of db.clients(); track c.id) {
                     <option [value]="c.id">{{ c.name }}</option>
@@ -105,7 +106,7 @@ import { FormsModule } from '@angular/forms';
 
               <div>
                 <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Serviço</label>
-                <select [(ngModel)]="newApp.serviceId" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none focus:ring-2 focus:ring-indigo-100 font-medium">
+                <select [(ngModel)]="newApp.service_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none focus:ring-2 focus:ring-indigo-100 font-medium">
                   <option value="" disabled>Qual serviço?</option>
                   @for (s of db.services(); track s.id) {
                     <option [value]="s.id">{{ s.name }} ({{ s.duration }} min)</option>
@@ -120,7 +121,7 @@ import { FormsModule } from '@angular/forms';
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Profissional</label>
-                  <select [(ngModel)]="newApp.professionalId" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none">
+                  <select [(ngModel)]="newApp.professional_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none">
                     @for (p of db.professionals(); track p.id) {
                       <option [value]="p.id">{{ p.name }}</option>
                     }
@@ -147,7 +148,7 @@ import { FormsModule } from '@angular/forms';
                 </button>
               }
 
-              <button (click)="saveAppointment()" [disabled]="!newApp.clientId || !newApp.serviceId" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold shadow-xl shadow-indigo-100 disabled:opacity-50">
+              <button (click)="saveAppointment()" [disabled]="!newApp.client_id || !newApp.service_id" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold shadow-xl shadow-indigo-100 disabled:opacity-50">
                 {{ editingAppointmentId() ? 'Salvar Alterações' : 'Agendar' }}
               </button>
               
@@ -190,9 +191,9 @@ export class CalendarComponent {
   hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
 
   newApp = {
-    clientId: '',
-    serviceId: '',
-    professionalId: '',
+    client_id: '',
+    service_id: '',
+    professional_id: '',
     time: '09:00',
     status: 'pending' as 'pending' | 'confirmed' | 'completed' | 'cancelled'
   };
@@ -221,9 +222,9 @@ export class CalendarComponent {
     this.editingAppointmentId.set(null);
     this.conflictError.set('');
     this.newApp = {
-      clientId: '',
-      serviceId: '',
-      professionalId: this.db.professionals()[0]?.id || '',
+      client_id: '',
+      service_id: '',
+      professional_id: this.db.professionals()[0]?.id || '',
       time: hour,
       status: 'pending'
     };
@@ -235,20 +236,20 @@ export class CalendarComponent {
     this.showNewClientModal.set(true);
   }
 
-  saveNewClient() {
+  async saveNewClient() {
     if (!this.clientForm.name) return;
-    const newId = 'c-' + Math.random().toString(36).substr(2, 5);
-    const bid = this.db.business()?.id || '';
-    this.db.addClient({ id: newId, name: this.clientForm.name, whatsapp: this.clientForm.whatsapp, businessId: bid });
-    this.newApp.clientId = newId;
+    const { data } = await this.db.addClient({ name: this.clientForm.name, whatsapp: this.clientForm.whatsapp });
+    if (data) {
+      this.newApp.client_id = data.id;
+    }
     this.showNewClientModal.set(false);
   }
 
   selectApp(app: Appointment) {
     this.newApp = {
-      clientId: app.clientId,
-      serviceId: app.serviceId,
-      professionalId: app.professionalId,
+      client_id: app.client_id,
+      service_id: app.service_id,
+      professional_id: app.professional_id,
       time: app.time,
       status: app.status
     };
@@ -258,11 +259,10 @@ export class CalendarComponent {
   }
 
   saveAppointment() {
-    if (!this.newApp.clientId || !this.newApp.serviceId) return;
+    if (!this.newApp.client_id || !this.newApp.service_id) return;
     const dateStr = this.selectedDate().toISOString().split('T')[0];
-    const bid = this.db.business()?.id || '';
 
-    const check = this.db.isAvailable(this.newApp.professionalId, dateStr, this.newApp.time, this.newApp.serviceId, this.editingAppointmentId() || undefined);
+    const check = this.db.isAvailable(this.newApp.professional_id, dateStr, this.newApp.time, this.newApp.service_id, this.editingAppointmentId() || undefined);
     
     if (!check.available) {
       this.conflictError.set(check.conflict || 'Horário ocupado');
@@ -276,10 +276,8 @@ export class CalendarComponent {
       }
     } else {
       this.db.addAppointment({
-        id: 'a-' + Math.random().toString(36).substr(2, 5),
         ...this.newApp,
-        date: dateStr,
-        businessId: bid
+        date: dateStr
       });
     }
 
@@ -291,11 +289,11 @@ export class CalendarComponent {
     const app = this.db.appointments().find(a => a.id === this.editingAppointmentId());
     if (!app) return;
 
-    const client = this.db.clients().find(c => c.id === app.clientId);
+    const client = this.db.clients().find(c => c.id === app.client_id);
     if (!client) return;
 
-    const service = this.db.services().find(s => s.id === app.serviceId);
-    const professional = this.db.getProfessionalName(app.professionalId);
+    const service = this.db.services().find(s => s.id === app.service_id);
+    const professional = this.db.getProfessionalName(app.professional_id);
     const business = this.db.business();
 
     const [year, month, day] = app.date.split('-');

@@ -1,18 +1,20 @@
 
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { AuthService } from './auth.service';
+import { SupabaseService } from './supabase.service';
 
 export interface Business {
   id: string;
   name: string;
   hours: string;
+  branding_color?: string;
+  logo_url?: string;
 }
 
 export interface Professional {
   id: string;
   name: string;
-  businessId: string;
-  userId?: string; // Vinculo opcional com conta de login
+  business_id: string;
 }
 
 export interface ServiceItem {
@@ -20,7 +22,7 @@ export interface ServiceItem {
   name: string;
   duration: number;
   price: number;
-  businessId: string;
+  business_id: string;
 }
 
 export interface Client {
@@ -28,192 +30,246 @@ export interface Client {
   name: string;
   whatsapp: string;
   notes?: string;
-  businessId: string;
+  business_id: string;
 }
 
 export interface Appointment {
   id: string;
-  clientId: string;
-  serviceId: string;
-  professionalId: string;
+  client_id: string;
+  service_id: string;
+  professional_id: string;
   date: string;
   time: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   notes?: string;
-  businessId: string;
+  business_id: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class DbService {
   private auth = inject(AuthService);
+  private supabase = inject(SupabaseService);
 
-  // Raw data from storage
-  private _businesses = signal<Business[]>([]);
-  private _professionals = signal<Professional[]>([]);
-  private _services = signal<ServiceItem[]>([]);
-  private _clients = signal<Client[]>([]);
-  private _appointments = signal<Appointment[]>([]);
+  public _business = signal<Business | null>(null);
+  public _professionals = signal<Professional[]>([]);
+  public _services = signal<ServiceItem[]>([]);
+  public _clients = signal<Client[]>([]);
+  public _appointments = signal<Appointment[]>([]);
 
-  // Computed signals that act like RLS (Row Level Security)
-  business = computed(() => {
-    const bid = this.auth.currentUser()?.businessId;
-    return this._businesses().find(b => b.id === bid) || null;
-  });
+  business = computed(() => this._business());
+  professionals = computed(() => this._professionals());
+  services = computed(() => this._services());
+  clients = computed(() => this._clients());
+  appointments = computed(() => this._appointments());
 
-  professionals = computed(() => {
-    const bid = this.auth.currentUser()?.businessId;
-    return this._professionals().filter(p => p.businessId === bid);
-  });
-
-  services = computed(() => {
-    const bid = this.auth.currentUser()?.businessId;
-    return this._services().filter(s => s.businessId === bid);
-  });
-
-  clients = computed(() => {
-    const bid = this.auth.currentUser()?.businessId;
-    return this._clients().filter(c => c.businessId === bid);
-  });
-
-  appointments = computed(() => {
-    const user = this.auth.currentUser();
-    if (!user || !user.businessId) return [];
-
-    const apps = this._appointments().filter(a => a.businessId === user.businessId);
-
-    // Regra: Staff só vê os seus. Admin vê todos do estabelecimento.
-    if (user.role === 'staff') {
-      return apps.filter(a => a.professionalId === user.id);
-    }
-
-    return apps;
+  // White Label: Computed signal para cor do tema
+  brandColor = computed(() => this._business()?.branding_color || '#4f46e5');
+  
+  // White Label: Computed signal para cor de contraste (texto sobre o tema)
+  brandContrastColor = computed(() => {
+    const hex = this.brandColor().replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 128 ? '#1e293b' : '#ffffff';
   });
 
   constructor() {
-    this.load();
-  }
-
-  private load() {
-    const b = localStorage.getItem('bs_all_businesses');
-    const p = localStorage.getItem('bs_all_pros');
-    const s = localStorage.getItem('bs_all_services');
-    const c = localStorage.getItem('bs_all_clients');
-    const a = localStorage.getItem('bs_all_appointments');
-
-    if (b) this._businesses.set(JSON.parse(b));
-    if (p) this._professionals.set(JSON.parse(p));
-    if (s) this._services.set(JSON.parse(s));
-    if (c) this._clients.set(JSON.parse(c));
-    if (a) this._appointments.set(JSON.parse(a));
-  }
-
-  private sync(key: string, data: any) {
-    localStorage.setItem(key, JSON.stringify(data));
-  }
-
-  saveBusiness(data: Business) {
-    this._businesses.update(prev => {
-      const idx = prev.findIndex(b => b.id === data.id);
-      const next = idx >= 0 ? prev.map(b => b.id === data.id ? data : b) : [...prev, data];
-      this.sync('bs_all_businesses', next);
-      return next;
+    effect(() => {
+      const user = this.auth.currentUser();
+      if (user?.businessId) {
+        this.loadAllData(user.businessId);
+      } else {
+        this.clearData();
+      }
     });
   }
 
-  addProfessional(prof: Professional) {
-    const bid = this.auth.currentUser()?.businessId;
-    if (!bid) return;
-    this._professionals.update(prev => {
-      const next = [...prev, { ...prof, businessId: bid }];
-      this.sync('bs_all_pros', next);
-      return next;
-    });
+  private clearData() {
+    this._business.set(null);
+    this._professionals.set([]);
+    this._services.set([]);
+    this._clients.set([]);
+    this._appointments.set([]);
   }
 
-  updateProfessional(prof: Professional) {
-    this._professionals.update(prev => {
-      const next = prev.map(p => p.id === prof.id ? prof : p);
-      this.sync('bs_all_pros', next);
-      return next;
-    });
+  private getActiveBusinessId(): string {
+    const id = this.auth.currentUser()?.businessId;
+    if (!id) throw new Error('Acesso negado.');
+    return id;
   }
 
-  deleteProfessional(id: string) {
-    this._professionals.update(prev => {
-      const next = prev.filter(p => p.id !== id);
-      this.sync('bs_all_pros', next);
-      return next;
-    });
+  async loadAllData(businessId: string) {
+    try {
+      const [bus, profs, servs, clis, apps] = await Promise.all([
+        this.supabase.client.from('businesses').select('*').eq('id', businessId).single(),
+        this.supabase.client.from('professionals').select('*').eq('business_id', businessId),
+        this.supabase.client.from('services').select('*').eq('business_id', businessId),
+        this.supabase.client.from('clients').select('*').eq('business_id', businessId),
+        this.supabase.client.from('appointments').select('*').eq('business_id', businessId)
+      ]);
+
+      if (bus.data) this._business.set(bus.data);
+      if (profs.data) this._professionals.set(profs.data || []);
+      if (servs.data) this._services.set(servs.data || []);
+      if (clis.data) this._clients.set(clis.data || []);
+      if (apps.data) this._appointments.set(apps.data || []);
+    } catch (error) {
+      console.error('Erro de sincronização:', error);
+    }
   }
 
-  addService(service: ServiceItem) {
-    const bid = this.auth.currentUser()?.businessId;
-    if (!bid) return;
-    this._services.update(prev => {
-      const next = [...prev, { ...service, businessId: bid }];
-      this.sync('bs_all_services', next);
-      return next;
-    });
+  async addClient(client: Omit<Client, 'id' | 'business_id'>) {
+    const bid = this.getActiveBusinessId();
+    const { data, error } = await this.supabase.client
+      .from('clients')
+      .insert({ ...client, business_id: bid })
+      .select()
+      .single();
+
+    if (data) this._clients.update(prev => [...prev, data]);
+    return { data, error };
   }
 
-  updateService(service: ServiceItem) {
-    this._services.update(prev => {
-      const next = prev.map(s => s.id === service.id ? service : s);
-      this.sync('bs_all_services', next);
-      return next;
-    });
+  async addAppointment(app: Omit<Appointment, 'id' | 'business_id'>) {
+    const bid = this.getActiveBusinessId();
+    const { data, error } = await this.supabase.client
+      .from('appointments')
+      .insert({ ...app, business_id: bid })
+      .select()
+      .single();
+
+    if (data) this._appointments.update(prev => [...prev, data]);
+    return { data, error };
   }
 
-  deleteService(id: string) {
-    this._services.update(prev => {
-      const next = prev.filter(s => s.id !== id);
-      this.sync('bs_all_services', next);
-      return next;
-    });
+  async updateAppointment(app: Appointment) {
+    const bid = this.getActiveBusinessId();
+    const { error } = await this.supabase.client
+      .from('appointments')
+      .update(app)
+      .eq('id', app.id)
+      .eq('business_id', bid);
+
+    if (!error) {
+      this._appointments.update(prev => prev.map(a => a.id === app.id ? app : a));
+    }
   }
 
-  addClient(client: Client) {
-    const bid = this.auth.currentUser()?.businessId;
-    if (!bid) return;
-    this._clients.update(prev => {
-      const next = [...prev, { ...client, businessId: bid }];
-      this.sync('bs_all_clients', next);
-      return next;
-    });
+  async updateAppointmentStatus(id: string, status: string) {
+    const bid = this.getActiveBusinessId();
+    const { error } = await this.supabase.client
+      .from('appointments')
+      .update({ status })
+      .eq('id', id)
+      .eq('business_id', bid);
+
+    if (!error) {
+      this._appointments.update(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
+    }
   }
 
-  addAppointment(app: Appointment) {
-    const bid = this.auth.currentUser()?.businessId;
-    if (!bid) return;
-    this._appointments.update(prev => {
-      const next = [...prev, { ...app, businessId: bid }];
-      this.sync('bs_all_appointments', next);
-      return next;
-    });
+  async deleteAppointment(id: string) {
+    const bid = this.getActiveBusinessId();
+    const { error } = await this.supabase.client
+      .from('appointments')
+      .delete()
+      .eq('id', id)
+      .eq('business_id', bid);
+
+    if (!error) {
+      this._appointments.update(prev => prev.filter(a => a.id !== id));
+    }
   }
 
-  updateAppointment(updated: Appointment) {
-    this._appointments.update(prev => {
-      const next = prev.map(a => a.id === updated.id ? updated : a);
-      this.sync('bs_all_appointments', next);
-      return next;
-    });
+  async addService(service: Omit<ServiceItem, 'id' | 'business_id'>) {
+    const bid = this.getActiveBusinessId();
+    const { data, error } = await this.supabase.client
+      .from('services')
+      .insert({ ...service, business_id: bid })
+      .select()
+      .single();
+
+    if (data) this._services.update(prev => [...prev, data]);
+    return { data, error };
   }
 
-  updateAppointmentStatus(id: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') {
-    this._appointments.update(prev => {
-      const next = prev.map(a => a.id === id ? { ...a, status } : a);
-      this.sync('bs_all_appointments', next);
-      return next;
-    });
+  async updateService(service: ServiceItem) {
+    const bid = this.getActiveBusinessId();
+    const { error } = await this.supabase.client
+      .from('services')
+      .update(service)
+      .eq('id', service.id)
+      .eq('business_id', bid);
+
+    if (!error) {
+      this._services.update(prev => prev.map(s => s.id === service.id ? service : s));
+    }
   }
 
-  deleteAppointment(id: string) {
-    this._appointments.update(prev => {
-      const next = prev.filter(a => a.id !== id);
-      this.sync('bs_all_appointments', next);
-      return next;
-    });
+  async deleteService(id: string) {
+    const bid = this.getActiveBusinessId();
+    const { error } = await this.supabase.client
+      .from('services')
+      .delete()
+      .eq('id', id)
+      .eq('business_id', bid);
+
+    if (!error) {
+      this._services.update(prev => prev.filter(s => s.id !== id));
+    }
+  }
+
+  async addProfessional(prof: Omit<Professional, 'id' | 'business_id'>) {
+    const bid = this.getActiveBusinessId();
+    const { data, error } = await this.supabase.client
+      .from('professionals')
+      .insert({ ...prof, business_id: bid })
+      .select()
+      .single();
+
+    if (data) this._professionals.update(prev => [...prev, data]);
+    return { data, error };
+  }
+
+  async updateProfessional(prof: Professional) {
+    const bid = this.getActiveBusinessId();
+    const { error } = await this.supabase.client
+      .from('professionals')
+      .update(prof)
+      .eq('id', prof.id)
+      .eq('business_id', bid);
+
+    if (!error) {
+      this._professionals.update(prev => prev.map(p => p.id === prof.id ? prof : p));
+    }
+  }
+
+  async deleteProfessional(id: string) {
+    const bid = this.getActiveBusinessId();
+    const { error } = await this.supabase.client
+      .from('professionals')
+      .delete()
+      .eq('id', id)
+      .eq('business_id', bid);
+
+    if (!error) {
+      this._professionals.update(prev => prev.filter(p => p.id !== id));
+    }
+  }
+
+  async saveBusiness(data: Partial<Business>) {
+    const bid = this.getActiveBusinessId();
+    const { data: saved, error } = await this.supabase.client
+      .from('businesses')
+      .update(data)
+      .eq('id', bid)
+      .select()
+      .single();
+    
+    if (saved) this._business.set(saved);
+    return { saved, error };
   }
 
   getClientName(id: string) {
@@ -231,12 +287,12 @@ export class DbService {
   getTodayStats() {
     return computed(() => {
       const todayStr = new Date().toISOString().split('T')[0];
-      const apps = this.appointments().filter(a => a.date === todayStr);
+      const apps = this._appointments().filter(a => a.date === todayStr);
       const finished = apps.filter(a => a.status === 'completed');
       
       const faturamento = finished.reduce((sum, app) => {
-        const srv = this._services().find(s => s.id === app.serviceId);
-        return sum + (srv?.price || 0);
+        const srv = this._services().find(s => s.id === app.service_id);
+        return sum + (Number(srv?.price) || 0);
       }, 0);
 
       return {
@@ -257,15 +313,14 @@ export class DbService {
     const endInMinutes = startInMinutes + duration;
 
     const dayApps = this._appointments().filter(a => 
-      a.businessId === this.auth.currentUser()?.businessId &&
       a.date === date && 
-      a.professionalId === profId && 
+      a.professional_id === profId && 
       a.status !== 'cancelled' &&
       a.id !== excludeAppId
     );
 
     for (const app of dayApps) {
-      const appService = this._services().find(s => s.id === app.serviceId);
+      const appService = this._services().find(s => s.id === app.service_id);
       if (!appService) continue;
 
       const [ah, am] = app.time.split(':').map(Number);
@@ -273,7 +328,7 @@ export class DbService {
       const aEnd = aStart + appService.duration;
 
       if (startInMinutes < aEnd && endInMinutes > aStart) {
-        const client = this._clients().find(c => c.id === app.clientId);
+        const client = this._clients().find(c => c.id === app.client_id);
         return { 
           available: false, 
           conflict: `${client?.name || 'Cliente'} já tem agendamento às ${app.time}` 
@@ -281,5 +336,24 @@ export class DbService {
       }
     }
     return { available: true };
+  }
+
+  async createInitialSetup(businessName: string, profName: string, services: any[]) {
+    const { data: bus, error: bErr } = await this.supabase.client
+      .from('businesses')
+      .insert({ name: businessName, hours: '08:00 - 18:00', branding_color: '#4f46e5' })
+      .select()
+      .single();
+
+    if (bErr || !bus) throw new Error("Erro ao criar empresa.");
+
+    await this.supabase.client
+      .from('professionals')
+      .insert({ name: profName, business_id: bus.id });
+
+    const servicesToInsert = services.map(s => ({ ...s, business_id: bus.id }));
+    await this.supabase.client.from('services').insert(servicesToInsert);
+
+    return bus.id;
   }
 }

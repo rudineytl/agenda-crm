@@ -1,9 +1,10 @@
 
-import { Component, signal, inject, computed } from '@angular/core';
+import { Component, signal, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { DbService } from '../services/db.service';
 
 @Component({
   selector: 'app-cashier',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-6">
       <h1 class="text-2xl font-bold text-slate-800 mb-6">Caixa</h1>
@@ -32,11 +33,11 @@ import { DbService } from '../services/db.service';
                 <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
               </div>
               <div>
-                <p class="text-sm font-bold text-slate-800">{{ db.getClientName(app.clientId) }}</p>
+                <p class="text-sm font-bold text-slate-800">{{ db.getClientName(app.client_id) }}</p>
                 <p class="text-[10px] text-slate-400 uppercase">{{ app.date }}</p>
               </div>
             </div>
-            <p class="font-bold text-slate-800">R$ {{ getPrice(app.serviceId) }}</p>
+            <p class="font-bold text-slate-800">R$ {{ getPrice(app.service_id) }}</p>
           </div>
         } @empty {
           <div class="py-10 text-center text-slate-400 text-sm">
@@ -54,7 +55,7 @@ export class CashierComponent {
   monthlyTotal = computed(() => {
     return this.db.appointments()
       .filter(a => a.status === 'completed')
-      .reduce((sum, app) => sum + this.getPrice(app.serviceId), 0);
+      .reduce((sum, app) => sum + this.getPrice(app.service_id), 0);
   });
 
   completedCount = computed(() => {

@@ -1,5 +1,5 @@
 
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { DbService, ServiceItem } from '../services/db.service';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 @Component({
   selector: 'app-services',
   imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-6 md:py-10">
       <header class="flex items-center gap-4 mb-8">
@@ -102,7 +103,7 @@ export class ServicesComponent {
   openModal(service?: ServiceItem) {
     if (service) {
       this.editingId.set(service.id);
-      this.form = { ...service };
+      this.form = { name: service.name, price: service.price, duration: service.duration };
     } else {
       this.editingId.set(null);
       this.form = { name: '', price: 0, duration: 30 };
@@ -110,24 +111,27 @@ export class ServicesComponent {
     this.showModal.set(true);
   }
 
-  save() {
+  async save() {
     if (!this.form.name) return;
 
     if (this.editingId()) {
-      this.db.updateService({ ...this.form, id: this.editingId()! } as ServiceItem);
+      const existing = this.db.services().find(s => s.id === this.editingId());
+      if (existing) {
+        await this.db.updateService({ ...existing, ...this.form });
+      }
     } else {
-      this.db.addService({
-        ...this.form,
-        id: 's-' + Math.random().toString(36).substr(2, 5),
-        businessId: '' // Atribuído no DbService
-      } as ServiceItem);
+      await this.db.addService({
+        name: this.form.name,
+        price: this.form.price,
+        duration: this.form.duration
+      });
     }
     this.showModal.set(false);
   }
 
-  delete(s: ServiceItem) {
+  async delete(s: ServiceItem) {
     if (confirm(`Remover o serviço "${s.name}"? Esta ação não pode ser desfeita.`)) {
-      this.db.deleteService(s.id);
+      await this.db.deleteService(s.id);
     }
   }
 }

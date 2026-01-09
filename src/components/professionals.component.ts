@@ -1,5 +1,5 @@
 
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { DbService, Professional } from '../services/db.service';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 @Component({
   selector: 'app-professionals',
   imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="p-6 md:py-10">
       <header class="flex items-center gap-4 mb-8">
@@ -94,7 +95,7 @@ export class ProfessionalsComponent {
   openModal(prof?: Professional) {
     if (prof) {
       this.editingId.set(prof.id);
-      this.form = { ...prof };
+      this.form = { name: prof.name };
     } else {
       this.editingId.set(null);
       this.form = { name: '' };
@@ -102,24 +103,25 @@ export class ProfessionalsComponent {
     this.showModal.set(true);
   }
 
-  save() {
+  async save() {
     if (!this.form.name) return;
 
     if (this.editingId()) {
-      this.db.updateProfessional({ ...this.form, id: this.editingId()! } as Professional);
+      const existing = this.db.professionals().find(p => p.id === this.editingId());
+      if (existing) {
+        await this.db.updateProfessional({ ...existing, ...this.form });
+      }
     } else {
-      this.db.addProfessional({
-        ...this.form,
-        id: 'p-' + Math.random().toString(36).substr(2, 5),
-        businessId: '' // Atribuído no DbService
-      } as Professional);
+      await this.db.addProfessional({
+        name: this.form.name
+      });
     }
     this.showModal.set(false);
   }
 
-  delete(p: Professional) {
+  async delete(p: Professional) {
     if (confirm(`Remover o profissional "${p.name}"? Agendamentos futuros vinculados a ele podem ser impactados.`)) {
-      this.db.deleteProfessional(p.id);
+      await this.db.deleteProfessional(p.id);
     }
   }
 }
