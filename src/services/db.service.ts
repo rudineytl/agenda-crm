@@ -96,22 +96,21 @@ export class DbService {
 
   private getActiveBusinessId(): string {
     const id = this.auth.currentUser()?.businessId;
-    return id || 'mock-id';
+    return id || 'demo-biz';
   }
 
   private isConfigured(): boolean {
-    const url = process.env['SUPABASE_URL'];
-    const key = process.env['SUPABASE_KEY'];
-    return !!url && !!key && !url.includes('placeholder') && url.length > 10;
+    // Agora delega a verificação para o SupabaseService que já fez o lookup das chaves
+    return this.supabase.isReady;
   }
 
   async loadAllData(businessId: string) {
     if (!this.isConfigured()) {
-      // Mock data if not configured
+      // Se não configurado, garante que pelo menos um objeto de negócio exista para a UI não quebrar
       if (!this._business()) {
         this._business.set({
           id: businessId,
-          name: 'Agenda - CRM Demo',
+          name: 'Agenda - CRM (Demo)',
           hours: '08:00 - 18:00',
           branding_color: '#4f46e5'
         });
@@ -141,7 +140,7 @@ export class DbService {
   async saveBusiness(data: Partial<Business>) {
     const bid = this.getActiveBusinessId();
     
-    // Atualização Otimista do Signal (Resolve o problema de não mudar na UI)
+    // Atualização Otimista
     const current = this._business();
     if (current) {
       this._business.set({ ...current, ...data });
@@ -163,11 +162,11 @@ export class DbService {
       return { saved, error };
     } catch (err) {
       console.error('Save Business Error:', err);
-      return { saved: null, error: err };
+      return { saved: this._business(), error: err };
     }
   }
 
-  // Restante dos métodos mantidos com a mesma lógica de atualização de signal otimista...
+  // Métodos de CRUD simplificados para brevidade, mantendo atualização otimista...
   getClientName(id: string) { return this._clients().find(c => c.id === id)?.name || 'Cliente'; }
   getServiceName(id: string) { return this._services().find(s => s.id === id)?.name || 'Serviço'; }
   getProfessionalName(id: string) { return this._professionals().find(p => p.id === id)?.name || 'Profissional'; }
@@ -198,23 +197,17 @@ export class DbService {
 
   async updateAppointmentStatus(id: string, status: string) {
     this._appointments.update(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('appointments').update({ status }).eq('id', id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('appointments').update({ status }).eq('id', id);
   }
 
   async updateAppointment(app: Appointment) {
     this._appointments.update(prev => prev.map(a => a.id === app.id ? app : a));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('appointments').update(app).eq('id', app.id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('appointments').update(app).eq('id', app.id);
   }
 
   async deleteAppointment(id: string) {
     this._appointments.update(prev => prev.filter(a => a.id !== id));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('appointments').delete().eq('id', id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('appointments').delete().eq('id', id);
   }
 
   async addService(service: Omit<ServiceItem, 'id' | 'business_id'>) {
@@ -231,16 +224,12 @@ export class DbService {
 
   async updateService(service: ServiceItem) {
     this._services.update(prev => prev.map(s => s.id === service.id ? service : s));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('services').update(service).eq('id', service.id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('services').update(service).eq('id', service.id);
   }
 
   async deleteService(id: string) {
     this._services.update(prev => prev.filter(s => s.id !== id));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('services').delete().eq('id', id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('services').delete().eq('id', id);
   }
 
   async addProfessional(prof: Omit<Professional, 'id' | 'business_id'>) {
@@ -257,16 +246,12 @@ export class DbService {
 
   async updateProfessional(prof: Professional) {
     this._professionals.update(prev => prev.map(p => p.id === prof.id ? prof : p));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('professionals').update(prof).eq('id', prof.id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('professionals').update(prof).eq('id', prof.id);
   }
 
   async deleteProfessional(id: string) {
     this._professionals.update(prev => prev.filter(p => p.id !== id));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('professionals').delete().eq('id', id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('professionals').delete().eq('id', id);
   }
 
   getTodayStats() {

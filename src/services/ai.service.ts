@@ -4,15 +4,17 @@ import { GoogleGenAI } from "@google/genai";
 
 @Injectable({ providedIn: 'root' })
 export class AiService {
-  private ai = new GoogleGenAI({ 
-    apiKey: process.env['API_KEY'] || '' 
-  });
+  private getApiKey(): string {
+    return process.env['API_KEY'] || process.env['NEXT_PUBLIC_GEMINI_API_KEY'] || '';
+  }
 
   async getBusinessInsight(data: { appointmentsCount: number, revenue: number, topService: string }): Promise<string> {
-    try {
-      if (!process.env['API_KEY']) return 'Foque na excelência do atendimento hoje!';
+    const key = this.getApiKey();
+    if (!key) return 'Foque na excelência do atendimento hoje!';
 
-      const response = await this.ai.models.generateContent({
+    try {
+      const ai = new GoogleGenAI({ apiKey: key });
+      const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: `Analise estes dados de um negócio de beleza hoje: ${data.appointmentsCount} atendimentos, R$ ${data.revenue} de faturamento. O serviço mais procurado foi ${data.topService}. Dê uma dica curta e motivadora de 1 frase para o dono do negócio.`,
         config: {
@@ -22,7 +24,7 @@ export class AiService {
       
       return response.text || 'Continue brilhando e oferecendo o melhor serviço!';
     } catch (error) {
-      console.error('Erro na IA:', error);
+      console.error('IA Error:', error);
       return 'Foque na excelência do atendimento para fidelizar seus clientes!';
     }
   }
