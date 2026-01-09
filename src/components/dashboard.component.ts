@@ -48,7 +48,7 @@ import { FormsModule } from '@angular/forms';
           <p class="text-3xl font-bold text-slate-700">{{ stats().count }}</p>
         </div>
         <div class="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm">
-          <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Pendentes Agora</p>
+          <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Ativos Agora</p>
           <p class="text-3xl font-bold text-amber-500">{{ stats().pending }}</p>
         </div>
       </div>
@@ -66,17 +66,19 @@ import { FormsModule } from '@angular/forms';
                [class.opacity-60]="app.status === 'completed'"
                (click)="selectApp(app)">
             <div class="text-center min-w-[60px]">
-              <p class="text-lg font-bold text-indigo-600">{{ app.time }}</p>
+              <p class="text-lg font-bold text-indigo-600" [class.text-emerald-600]="app.status === 'confirmed'">{{ app.time }}</p>
               <p class="text-[10px] text-slate-400 font-bold uppercase">Hoje</p>
             </div>
             <div class="flex-1 border-l border-slate-100 pl-5">
               <p class="font-bold text-slate-800 text-lg leading-tight">{{ db.getClientName(app.clientId) }}</p>
               <div class="flex items-center gap-2 mt-1">
                 <span class="text-xs bg-slate-100 px-2 py-0.5 rounded-md text-slate-600 font-medium">{{ db.getServiceName(app.serviceId) }}</span>
-                <span class="text-xs text-slate-400">• Prof: {{ db.getProfessionalName(app.professionalId) }}</span>
+                @if (app.status === 'confirmed') {
+                  <span class="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md font-bold uppercase">Confirmado</span>
+                }
               </div>
             </div>
-            @if (app.status === 'pending') {
+            @if (app.status === 'pending' || app.status === 'confirmed') {
               <button (click)="complete(app.id); $event.stopPropagation()" class="bg-emerald-50 text-emerald-600 p-3 rounded-2xl hover:bg-emerald-100 transition-colors">
                 <i data-lucide="check" class="w-6 h-6"></i>
               </button>
@@ -97,7 +99,7 @@ import { FormsModule } from '@angular/forms';
         }
       </div>
 
-      <!-- Main Scheduling Modal (Omitted for brevity, kept same logic) -->
+      <!-- Main Scheduling Modal -->
       @if (showModal()) {
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -154,12 +156,13 @@ import { FormsModule } from '@angular/forms';
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Horário</label>
-                  <input type="time" [(ngModel)]="newApp.time" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-100 font-bold">
+                  <input type="time" [(ngModel)]="newApp.time" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-100 font-bold text-slate-700">
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Situação</label>
-                  <select [(ngModel)]="newApp.status" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none focus:ring-2 focus:ring-indigo-100 font-bold">
-                    <option value="pending">Agendado</option>
+                  <select [(ngModel)]="newApp.status" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none focus:ring-2 focus:ring-indigo-100 font-bold text-slate-700">
+                    <option value="pending">Pendente</option>
+                    <option value="confirmed">Confirmado</option>
                     <option value="completed">Concluído</option>
                     <option value="cancelled">Cancelado</option>
                   </select>
@@ -234,13 +237,12 @@ export class DashboardComponent implements OnInit {
     serviceId: '',
     professionalId: '',
     time: '09:00',
-    status: 'pending' as 'pending' | 'completed' | 'cancelled'
+    status: 'pending' as 'pending' | 'confirmed' | 'completed' | 'cancelled'
   };
 
   clientForm = { name: '', whatsapp: '' };
 
   async ngOnInit() {
-    // Carrega insight da IA baseado nos dados atuais
     const stats = this.stats();
     const topService = this.db.services()[0]?.name || 'Nenhum';
     

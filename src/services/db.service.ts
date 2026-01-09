@@ -38,7 +38,7 @@ export interface Appointment {
   professionalId: string;
   date: string;
   time: string;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   notes?: string;
   businessId: string;
 }
@@ -83,8 +83,6 @@ export class DbService {
 
     // Regra: Staff só vê os seus. Admin vê todos do estabelecimento.
     if (user.role === 'staff') {
-      // Em um sistema real, mapearíamos o userId do Auth para o professionalId do DB
-      // Para o MVP, assumimos que o profissional id é igual ao userId se vinculado
       return apps.filter(a => a.professionalId === user.id);
     }
 
@@ -132,7 +130,6 @@ export class DbService {
     });
   }
 
-  // Implementation of missing Professional update/delete methods
   updateProfessional(prof: Professional) {
     this._professionals.update(prev => {
       const next = prev.map(p => p.id === prof.id ? prof : p);
@@ -159,7 +156,6 @@ export class DbService {
     });
   }
 
-  // Implementation of missing Service update/delete methods
   updateService(service: ServiceItem) {
     this._services.update(prev => {
       const next = prev.map(s => s.id === service.id ? service : s);
@@ -204,7 +200,7 @@ export class DbService {
     });
   }
 
-  updateAppointmentStatus(id: string, status: 'pending' | 'completed' | 'cancelled') {
+  updateAppointmentStatus(id: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') {
     this._appointments.update(prev => {
       const next = prev.map(a => a.id === id ? { ...a, status } : a);
       this.sync('bs_all_appointments', next);
@@ -245,7 +241,7 @@ export class DbService {
 
       return {
         count: apps.length,
-        pending: apps.filter(a => a.status === 'pending').length,
+        pending: apps.filter(a => a.status === 'pending' || a.status === 'confirmed').length,
         faturamento
       };
     });
@@ -260,7 +256,6 @@ export class DbService {
     const startInMinutes = h * 60 + m;
     const endInMinutes = startInMinutes + duration;
 
-    // Verifica apenas os agendamentos da mesma empresa e profissional
     const dayApps = this._appointments().filter(a => 
       a.businessId === this.auth.currentUser()?.businessId &&
       a.date === date && 

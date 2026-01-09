@@ -83,7 +83,8 @@ import { FormsModule } from '@angular/forms';
 export class OnboardingComponent {
   db = inject(DbService);
   auth = inject(AuthService);
-  router = inject(Router);
+  // Explicitly typing the router member to resolve the 'unknown' type error
+  private router: Router = inject(Router);
   step = signal(1);
 
   bName = '';

@@ -4,6 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 
 @Injectable({ providedIn: 'root' })
 export class AiService {
+  // A API KEY é injetada via variável de ambiente no processo de build/execução
   private ai = new GoogleGenAI({ apiKey: (process as any).env.API_KEY });
 
   async getBusinessInsight(data: { appointmentsCount: number, revenue: number, topService: string }) {

@@ -41,9 +41,15 @@ import { FormsModule } from '@angular/forms';
               
               <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 @for (app of getAppsForHour(hour); track app.id) {
-                  <div (click)="selectApp(app)" class="bg-white border-l-4 border-indigo-500 p-4 rounded-r-2xl cursor-pointer shadow-sm hover:shadow-md transition-all active:scale-[0.98] border border-slate-100">
+                  <div (click)="selectApp(app)" class="bg-white border-l-4 p-4 rounded-r-2xl cursor-pointer shadow-sm hover:shadow-md transition-all active:scale-[0.98] border border-slate-100"
+                    [class.border-indigo-500]="app.status === 'pending'"
+                    [class.border-emerald-500]="app.status === 'confirmed' || app.status === 'completed'"
+                    [class.border-rose-400]="app.status === 'cancelled'">
                     <div class="flex justify-between items-start mb-2">
-                      <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase">{{ app.time }}</span>
+                      <span class="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase"
+                        [class]="app.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'">
+                        {{ app.time }}
+                      </span>
                       @if(app.status === 'completed') {
                         <div class="bg-emerald-50 text-emerald-600 p-1 rounded-full">
                           <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
@@ -124,6 +130,16 @@ import { FormsModule } from '@angular/forms';
                   </select>
                 </div>
               </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5 tracking-wider">Situação</label>
+                <select [(ngModel)]="newApp.status" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none appearance-none focus:ring-2 focus:ring-indigo-100 font-bold text-slate-700">
+                  <option value="pending">Pendente</option>
+                  <option value="confirmed">Confirmado</option>
+                  <option value="completed">Concluído</option>
+                  <option value="cancelled">Cancelado</option>
+                </select>
+              </div>
             </div>
 
             <div class="space-y-3">
@@ -181,7 +197,8 @@ export class CalendarComponent {
     clientId: '',
     serviceId: '',
     professionalId: '',
-    time: '09:00'
+    time: '09:00',
+    status: 'pending' as 'pending' | 'confirmed' | 'completed' | 'cancelled'
   };
 
   clientForm = { name: '', whatsapp: '' };
@@ -211,7 +228,8 @@ export class CalendarComponent {
       clientId: '',
       serviceId: '',
       professionalId: this.db.professionals()[0]?.id || '',
-      time: hour
+      time: hour,
+      status: 'pending'
     };
     this.showModal.set(true);
   }
@@ -225,7 +243,6 @@ export class CalendarComponent {
     if (!this.clientForm.name) return;
     const newId = 'c-' + Math.random().toString(36).substr(2, 5);
     const bid = this.db.business()?.id || '';
-    // Fix: provide businessId to match Client interface
     this.db.addClient({ id: newId, name: this.clientForm.name, whatsapp: this.clientForm.whatsapp, businessId: bid });
     this.newApp.clientId = newId;
     this.showNewClientModal.set(false);
@@ -236,7 +253,8 @@ export class CalendarComponent {
       clientId: app.clientId,
       serviceId: app.serviceId,
       professionalId: app.professionalId,
-      time: app.time
+      time: app.time,
+      status: app.status
     };
     this.editingAppointmentId.set(app.id);
     this.conflictError.set('');
@@ -255,26 +273,18 @@ export class CalendarComponent {
       return;
     }
 
-    let appointment: Appointment;
-
     if (this.editingAppointmentId()) {
       const existing = this.db.appointments().find(a => a.id === this.editingAppointmentId());
       if (existing) {
-        appointment = { ...existing, ...this.newApp, date: dateStr };
-        this.db.updateAppointment(appointment);
+        this.db.updateAppointment({ ...existing, ...this.newApp, date: dateStr });
       }
     } else {
-      // Fix: provide businessId to match Appointment interface
-      appointment = {
+      this.db.addAppointment({
         id: 'a-' + Math.random().toString(36).substr(2, 5),
         ...this.newApp,
         date: dateStr,
-        status: 'pending',
         businessId: bid
-      };
-      this.db.addAppointment(appointment);
-      this.editingAppointmentId.set(appointment.id);
-      return;
+      });
     }
 
     this.showModal.set(false);
@@ -301,19 +311,3 @@ export class CalendarComponent {
 ✂️ *${service?.name || 'Serviço'}*
 📅 *${formattedDate}* às *${app.time}*
 👤 Profissional: *${professional}*
-
-Aguardamos você!`;
-
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/55${client.whatsapp.replace(/\D/g, '')}?text=${encodedMessage}`;
-    
-    window.open(whatsappUrl, '_blank');
-  }
-
-  deleteAppointment() {
-    if (this.editingAppointmentId() && confirm('Remover agendamento?')) {
-      this.db.deleteAppointment(this.editingAppointmentId()!);
-      this.showModal.set(false);
-    }
-  }
-}
