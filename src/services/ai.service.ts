@@ -4,8 +4,10 @@ import { GoogleGenAI } from "@google/genai";
 
 @Injectable({ providedIn: 'root' })
 export class AiService {
-  // Acesso seguro ao process.env injetado pelo Vercel
-  private ai = new GoogleGenAI({ apiKey: (globalThis as any).process?.env?.['API_KEY'] || '' });
+  // Acesso seguro ao process.env injetado pelo Vercel via globalThis
+  private ai = new GoogleGenAI({ 
+    apiKey: (globalThis as any).process?.env?.['API_KEY'] || '' 
+  });
 
   async getBusinessInsight(data: { appointmentsCount: number, revenue: number, topService: string }): Promise<string> {
     try {

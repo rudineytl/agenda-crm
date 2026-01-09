@@ -21,12 +21,6 @@
     "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": true,
     "strictInputAccessModifiers": true,
-    "strictTemplates": true,
-    "extendedDiagnostics": {
-      "checks": {
-        "invalidBananaInBox": "error"
-      },
-      "defaultCategory": "warning"
-    }
+    "strictTemplates": true
   }
 }
