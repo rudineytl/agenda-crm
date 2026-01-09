@@ -25,7 +25,8 @@
     "extendedDiagnostics": {
       "checks": {
         "invalidBananaInBox": "error"
-      }
+      },
+      "defaultCategory": "warning"
     }
   }
 }

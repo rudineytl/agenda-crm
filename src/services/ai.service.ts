@@ -2,11 +2,10 @@
 import { Injectable } from '@angular/core';
 import { GoogleGenAI } from "@google/genai";
 
-declare var process: any;
-
 @Injectable({ providedIn: 'root' })
 export class AiService {
-  private ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Acesso seguro ao process.env injetado pelo Vercel
+  private ai = new GoogleGenAI({ apiKey: (globalThis as any).process?.env?.['API_KEY'] || '' });
 
   async getBusinessInsight(data: { appointmentsCount: number, revenue: number, topService: string }): Promise<string> {
     try {

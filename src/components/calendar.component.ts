@@ -30,13 +30,11 @@ import { FormsModule } from '@angular/forms';
       <div class="relative pl-16 border-l-2 border-slate-100 mt-4 space-y-10 py-6">
         @for (hour of hours; track hour) {
           <div class="relative group">
-            <!-- Hora -->
             <div class="absolute -left-[4.5rem] top-0 text-[11px] font-bold text-slate-400 uppercase tracking-tighter w-12 text-right">
               {{ hour }}
             </div>
             
             <div class="min-h-[70px] relative">
-              <!-- Slot de clique para nova reserva -->
               <button (click)="openQuickModal(hour)" class="absolute inset-0 w-full hover:bg-slate-100/50 rounded-2xl transition-all border-2 border-transparent hover:border-slate-100 z-0"></button>
               
               <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -74,7 +72,6 @@ import { FormsModule } from '@angular/forms';
         }
       </div>
 
-      <!-- Scheduling Modal -->
       @if (showModal()) {
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -164,7 +161,6 @@ import { FormsModule } from '@angular/forms';
         </div>
       }
 
-      <!-- Modal Cadastro de Cliente -->
       @if (showNewClientModal()) {
         <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div class="bg-white w-full max-w-xs rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
@@ -305,14 +301,13 @@ export class CalendarComponent {
     const [year, month, day] = app.date.split('-');
     const formattedDate = `${day}/${month}`;
 
-    const message = `Olá *${client.name}*! Passando para confirmar seu agendamento:
-    
-📍 *${business?.name || 'Nosso Studio'}*
-✂️ *${service?.name || 'Serviço'}*
-📅 *${formattedDate}* às *${app.time}*
-👤 Profissional: *${professional}*
-
-Aguardamos você!`;
+    // Correção: Uso de quebras de linha explícitas \n para evitar erro de string literal não finalizada no build
+    const message = "Olá *" + client.name + "*! Passando para confirmar seu agendamento:\n\n" +
+                   "📍 *" + (business?.name || 'Nosso Studio') + "*\n" +
+                   "✂️ *" + (service?.name || 'Serviço') + "*\n" +
+                   "📅 *" + formattedDate + "* às *" + app.time + "*\n" +
+                   "👤 Profissional: *" + professional + "*\n\n" +
+                   "Aguardamos você!";
 
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/55${client.whatsapp.replace(/\D/g, '')}?text=${encodedMessage}`;

@@ -254,6 +254,7 @@ export class DashboardComponent implements OnInit {
           revenue: stats.faturamento,
           topService: topService
         });
+        // Correção de tipagem: Garantir que undefined não seja passado para o sinal de string | null
         this.aiInsight.set(insight || null);
       } catch (e) {
         console.error('Falha ao obter insight da IA', e);
