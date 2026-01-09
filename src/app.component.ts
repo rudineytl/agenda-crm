@@ -34,7 +34,7 @@ import { DbService } from './services/db.service';
                    routerLinkActive="active-nav"
                    [style.--brand-color]="db.brandColor()"
                    class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-medium hover:bg-slate-50 transition-all nav-item">
-                  <i [data-lucide]="item.icon" class="w-5 h-5"></i>
+                  <i [attr.data-lucide]="item.icon" class="w-5 h-5"></i>
                   {{ item.label }}
                 </a>
               }
@@ -76,7 +76,7 @@ import { DbService } from './services/db.service';
                routerLinkActive="active-mobile-nav"
                [style.--brand-color]="db.brandColor()"
                class="flex flex-col items-center text-slate-400 mobile-nav-item">
-              <i [data-lucide]="item.icon" class="w-6 h-6"></i>
+              <i [attr.data-lucide]="item.icon" class="w-6 h-6"></i>
               <span class="text-[10px] mt-1 font-bold">{{ item.label }}</span>
             </a>
           }
