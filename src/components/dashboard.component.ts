@@ -244,15 +244,20 @@ export class DashboardComponent implements OnInit {
 
   async ngOnInit() {
     const stats = this.stats();
-    const topService = this.db.services()[0]?.name || 'Nenhum';
+    const services = this.db.services();
+    const topService = services.length > 0 ? services[0].name : 'Nenhum';
     
     if (stats.count > 0) {
-      const insight = await this.ai.getBusinessInsight({
-        appointmentsCount: stats.count,
-        revenue: stats.faturamento,
-        topService: topService
-      });
-      this.aiInsight.set(insight);
+      try {
+        const insight = await this.ai.getBusinessInsight({
+          appointmentsCount: stats.count,
+          revenue: stats.faturamento,
+          topService: topService
+        });
+        this.aiInsight.set(insight || null);
+      } catch (e) {
+        console.error('Falha ao obter insight da IA', e);
+      }
     }
   }
 

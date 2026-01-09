@@ -311,3 +311,19 @@ export class CalendarComponent {
 ✂️ *${service?.name || 'Serviço'}*
 📅 *${formattedDate}* às *${app.time}*
 👤 Profissional: *${professional}*
+
+Aguardamos você!`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/55${client.whatsapp.replace(/\D/g, '')}?text=${encodedMessage}`;
+    
+    window.open(whatsappUrl, '_blank');
+  }
+
+  deleteAppointment() {
+    if (this.editingAppointmentId() && confirm('Remover agendamento?')) {
+      this.db.deleteAppointment(this.editingAppointmentId()!);
+      this.showModal.set(false);
+    }
+  }
+}

@@ -24,7 +24,7 @@
     "strictTemplates": true,
     "extendedDiagnostics": {
       "checks": {
-        "invalidSelectionOnStruct": "error"
+        "invalidBananaInBox": "error"
       }
     }
   }
