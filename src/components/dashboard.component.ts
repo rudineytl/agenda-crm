@@ -80,8 +80,13 @@ import { FormsModule } from '@angular/forms';
             </div>
             <div class="flex-1 border-l border-slate-100 pl-5">
               <p class="font-bold text-slate-800 text-lg leading-tight">{{ db.getClientName(app.client_id) }}</p>
-              <div class="flex items-center gap-2 mt-1">
-                <span class="text-xs bg-slate-100 px-2 py-0.5 rounded-md text-slate-600 font-medium">{{ db.getServiceName(app.service_id) }}</span>
+              <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-md text-slate-400 font-bold uppercase tracking-wider">
+                  {{ db.getProfessionalName(app.professional_id) }}
+                </span>
+                <span class="text-xs text-slate-600 font-medium">
+                  {{ db.getServiceName(app.service_id) }}
+                </span>
               </div>
             </div>
             @if (app.status === 'pending' || app.status === 'confirmed') {

@@ -56,10 +56,12 @@ import { FormsModule } from '@angular/forms';
                       }
                     </div>
                     <p class="font-bold text-slate-800 text-base leading-tight">{{ db.getClientName(app.client_id) }}</p>
-                    <div class="flex items-center gap-2 mt-1.5">
-                      <p class="text-[11px] font-medium text-slate-500">{{ db.getServiceName(app.service_id) }}</p>
+                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <p class="text-[11px] font-bold uppercase tracking-wider" [style.color]="db.brandColor()">
+                        {{ db.getProfessionalName(app.professional_id) }}
+                      </p>
                       <span class="text-[10px] text-slate-300">•</span>
-                      <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{{ db.getProfessionalName(app.professional_id) }}</p>
+                      <p class="text-[11px] font-medium text-slate-500">{{ db.getServiceName(app.service_id) }}</p>
                     </div>
                   </div>
                 }
