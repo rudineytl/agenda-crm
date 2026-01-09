@@ -12,7 +12,7 @@ import { FormsModule } from '@angular/forms';
       <header class="flex justify-between items-center mb-10">
         <div>
           <h1 class="text-3xl font-bold text-slate-800">Agenda</h1>
-          <p class="text-slate-500 font-medium">{{ selectedDateFormatted }}</p>
+          <p class="text-slate-500 font-medium">{{ selectedDateFormatted() }}</p>
         </div>
         <div class="flex items-center gap-3">
           <div class="flex bg-white border border-slate-100 rounded-2xl p-1 shadow-sm">
@@ -301,7 +301,6 @@ export class CalendarComponent {
     const [year, month, day] = app.date.split('-');
     const formattedDate = `${day}/${month}`;
 
-    // Correção: Uso de quebras de linha explícitas \n para evitar erro de string literal não finalizada no build
     const message = "Olá *" + client.name + "*! Passando para confirmar seu agendamento:\n\n" +
                    "📍 *" + (business?.name || 'Nosso Studio') + "*\n" +
                    "✂️ *" + (service?.name || 'Serviço') + "*\n" +

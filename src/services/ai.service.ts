@@ -18,10 +18,11 @@ export class AiService {
           systemInstruction: "Você é um consultor de negócios especialista em estética e beleza. Seja breve, profissional e motivador."
         }
       });
-      return response.text;
+      // Correção TS2322: Forçando retorno de string mesmo que response.text seja undefined
+      return response.text || 'Continue brilhando e oferecendo o melhor serviço aos seus clientes!';
     } catch (error) {
       console.error('Erro na IA:', error);
-      return 'Continue brilhando e oferecendo o melhor serviço aos seus clientes!';
+      return 'Foque na excelência do atendimento para fidelizar seus clientes hoje!';
     }
   }
 }
