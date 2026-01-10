@@ -44,6 +44,7 @@ export interface Appointment {
   date: string;
   time: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  reminder?: 'none' | '1h' | '2h' | '24h';
   notes?: string;
   business_id: string;
 }
@@ -109,6 +110,41 @@ export class DbService {
     return this.supabase.isReady;
   }
 
+  /**
+   * Converte string de horário (HH:mm) para minutos totais desde a meia-noite.
+   */
+  private timeToMinutes(time: string): number {
+    if (!time) return 0;
+    const [h, m] = time.split(':').map(Number);
+    return (h * 60) + m;
+  }
+
+  /**
+   * Verifica se há conflito de horário para um profissional, considerando a duração do serviço.
+   * Lógica de Intersecção: (NovoInício < ExistenteFim) && (NovoFim > ExistenteInício)
+   */
+  checkConflict(profId: string, date: string, time: string, duration: number, excludeAppId?: string): boolean {
+    if (!profId || !date || !time || !duration) return false;
+
+    const newStart = this.timeToMinutes(time);
+    const newEnd = newStart + duration;
+
+    return this._appointments().some(a => {
+      // Ignora cancelados, outros profissionais, outras datas ou o próprio app sendo editado
+      if (a.professional_id !== profId || a.date !== date || a.id === excludeAppId || a.status === 'cancelled') {
+        return false;
+      }
+
+      const existingService = this._services().find(s => s.id === a.service_id);
+      const existingDuration = existingService?.duration || 60; // Default 60 se não houver dado
+      const existingStart = this.timeToMinutes(a.time);
+      const existingEnd = existingStart + existingDuration;
+
+      // Se os intervalos se sobrepõem
+      return (newStart < existingEnd && newEnd > existingStart);
+    });
+  }
+
   async loadAllData(businessId: string) {
     if (!this.isConfigured()) {
       if (!this._business()) {
@@ -136,16 +172,6 @@ export class DbService {
     }
   }
 
-  checkConflict(profId: string, date: string, time: string, excludeAppId?: string): boolean {
-    return this._appointments().some(a => 
-      a.professional_id === profId && 
-      a.date === date && 
-      a.time === time && 
-      a.id !== excludeAppId &&
-      a.status !== 'cancelled'
-    );
-  }
-
   async saveBusiness(data: Partial<Business>) {
     const bid = this.getActiveBusinessId();
     this._business.update(curr => curr ? { ...curr, ...data } : { id: bid, name: 'Agenda', hours: '08-18', ...data } as Business);
@@ -169,6 +195,20 @@ export class DbService {
     const { data, error } = await this.supabase.client.from('clients').insert({ ...client, business_id: bid }).select().single();
     if (data) this._clients.update(prev => [...prev, data]);
     return { data, error };
+  }
+
+  async updateClient(client: Client) {
+    this._clients.update(prev => prev.map(c => c.id === client.id ? client : c));
+    if (this.isConfigured()) {
+      await this.supabase.client.from('clients').update(client).eq('id', client.id);
+    }
+  }
+
+  async deleteClient(id: string) {
+    this._clients.update(prev => prev.filter(c => c.id !== id));
+    if (this.isConfigured()) {
+      await this.supabase.client.from('clients').delete().eq('id', id);
+    }
   }
 
   async addAppointment(app: Omit<Appointment, 'id' | 'business_id'>) {

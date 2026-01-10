@@ -6,7 +6,6 @@ import { DbService, Appointment, Client, ServiceItem, Business } from '../../ser
 
 /**
  * COMPONENTE: Card de Agendamento Unificado
- * Exibe Cliente, Serviço e Profissional de forma clara.
  */
 @Component({
   selector: 'app-appointment-card',
@@ -16,10 +15,8 @@ import { DbService, Appointment, Client, ServiceItem, Business } from '../../ser
     <div (click)="select.emit(app())" 
          class="bg-white border border-slate-100 p-5 rounded-3xl flex items-center gap-4 transition-all hover:border-slate-200 cursor-pointer shadow-sm relative overflow-hidden group">
       
-      <!-- Indicador Lateral de Status -->
       <div class="absolute left-0 top-0 bottom-0 w-1.5 transition-all group-hover:w-2" [style.backgroundColor]="getStatusColor(app().status)"></div>
       
-      <!-- Horário e Ícone -->
       <div class="text-center min-w-[60px]">
         <p class="text-lg font-black text-slate-800 tracking-tighter">{{ app().time }}</p>
         <div class="flex justify-center mt-1">
@@ -27,7 +24,6 @@ import { DbService, Appointment, Client, ServiceItem, Business } from '../../ser
         </div>
       </div>
 
-      <!-- Informações do Cliente, Serviço e Profissional -->
       <div class="flex-1 min-w-0">
         <p class="font-bold text-slate-800 leading-tight truncate">{{ db.getClientName(app().client_id) }}</p>
         <div class="flex items-center gap-2 mt-1.5 overflow-hidden">
@@ -42,7 +38,12 @@ import { DbService, Appointment, Client, ServiceItem, Business } from '../../ser
         </div>
       </div>
 
-      <!-- Ação de Conclusão Rápida -->
+      @if (app().reminder && app().reminder !== 'none') {
+        <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100" title="Lembrete Ativo">
+          <i data-lucide="bell-ring" class="w-4 h-4"></i>
+        </div>
+      }
+
       @if (app().status !== 'completed' && app().status !== 'cancelled') {
         <button (click)="complete.emit(app().id); $event.stopPropagation()" 
                 class="w-10 h-10 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-90 border border-transparent hover:border-emerald-100 shrink-0">
@@ -111,7 +112,7 @@ export class ClientModalComponent {
   async save() {
     const client = this.editingClient();
     if (client) {
-      await this.db.addClient({ ...this.form });
+      await this.db.updateClient({ ...client, ...this.form });
     } else {
       const res = await this.db.addClient(this.form);
       if (res.data) this.saved.emit(res.data);
@@ -142,12 +143,16 @@ export class ClientModalComponent {
               <input type="number" [(ngModel)]="form.price" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
             </div>
             <div>
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Status</label>
-              <select [(ngModel)]="form.status" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
-                <option value="active">Ativo</option>
-                <option value="inactive">Inativo</option>
-              </select>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Duração (Min)</label>
+              <input type="number" [(ngModel)]="form.duration" step="5" min="5" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
             </div>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Status</label>
+            <select [(ngModel)]="form.status" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
+              <option value="active">Ativo</option>
+              <option value="inactive">Inativo</option>
+            </select>
           </div>
         </div>
         <div class="flex gap-3">
@@ -198,11 +203,23 @@ export class ServiceModalComponent {
   imports: [CommonModule, FormsModule, ClientModalComponent, ServiceModalComponent],
   template: `
     <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="bg-white w-full max-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
+      <div class="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-2xl font-bold text-slate-800 tracking-tight">{{ editingApp() ? 'Gerenciar' : 'Agendar' }}</h3>
           <button (click)="close.emit()" class="text-slate-300 p-2 hover:bg-slate-50 rounded-full transition-colors"><i data-lucide="x" class="w-7 h-7"></i></button>
         </div>
+
+        @if (showNotificationSim()) {
+          <div class="mb-6 bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center gap-3 animate-in zoom-in-95 duration-500">
+            <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white shrink-0 shadow-md">
+              <i data-lucide="message-square" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-black uppercase text-emerald-600 tracking-widest">CRM Ativo</p>
+              <p class="text-xs font-bold text-emerald-800">Agendamento enviado via WhatsApp!</p>
+            </div>
+          </div>
+        }
 
         <div class="space-y-5 mb-8 overflow-y-auto no-scrollbar max-h-[60vh] px-1">
           <div>
@@ -221,16 +238,26 @@ export class ServiceModalComponent {
               <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Serviço</label>
               <button (click)="showQuickService.set(true)" [style.color]="db.brandColor()" class="text-[10px] font-black uppercase flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Novo</button>
             </div>
-            <select [(ngModel)]="form.service_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
+            <select [(ngModel)]="form.service_id" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
               <option value="" disabled>Qual o procedimento?</option>
-              @for (s of db.activeServices(); track s.id) { <option [value]="s.id">{{ s.name }} (R$ {{ s.price }})</option> }
+              @for (s of db.activeServices(); track s.id) { <option [value]="s.id">{{ s.name }} ({{ s.duration }} min)</option> }
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Lembrete WhatsApp</label>
+            <select [(ngModel)]="form.reminder" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
+              <option value="none">Sem lembrete</option>
+              <option value="1h">1 hora antes</option>
+              <option value="2h">2 horas antes</option>
+              <option value="24h">1 dia antes</option>
             </select>
           </div>
 
           <div>
             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Profissional Responsável</label>
             <select [(ngModel)]="form.professional_id" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
-              <option value="" disabled>Selecione o profissional...</option>
+              <option value="" disabled>Selecione...</option>
               @for (p of db.activeProfessionals(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
             </select>
           </div>
@@ -252,14 +279,14 @@ export class ServiceModalComponent {
           </div>
 
           @if (hasConflict()) {
-            <div class="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in duration-300">
-               <i data-lucide="alert-circle" class="w-5 h-5 text-rose-500"></i>
-               <p class="text-xs font-bold text-rose-600">Este profissional já tem um agendamento neste horário.</p>
+            <div class="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-3 animate-in shake duration-300">
+               <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-500"></i>
+               <p class="text-xs font-bold text-rose-600">Conflito de Horário! O profissional estará ocupado neste intervalo.</p>
             </div>
           }
         </div>
 
-        <button (click)="save()" [disabled]="!canSave()" [style.backgroundColor]="db.brandColor()" [style.color]="db.brandContrastColor()" class="w-full py-5 rounded-[2rem] font-black text-lg shadow-xl active:scale-[0.98] disabled:opacity-50 transition-all">
+        <button (click)="save()" [disabled]="!canSave() || isSaving() || hasConflict()" [style.backgroundColor]="db.brandColor()" [style.color]="db.brandContrastColor()" class="w-full py-5 rounded-[2rem] font-black text-lg shadow-xl active:scale-[0.98] disabled:opacity-50 transition-all">
           {{ editingApp() ? 'Salvar Alterações' : 'Confirmar Agendamento' }}
         </button>
       </div>
@@ -283,55 +310,78 @@ export class AppointmentModalComponent {
   showQuickClient = signal(false);
   showQuickService = signal(false);
   hasConflict = signal(false);
+  isSaving = signal(false);
+  showNotificationSim = signal(false);
 
-  form = { client_id: '', service_id: '', professional_id: '', time: '09:00', status: 'pending' as any, date: '' };
+  form = { client_id: '', service_id: '', professional_id: '', time: '09:00', status: 'pending' as any, date: '', reminder: 'none' as any };
 
   constructor() {
     effect(() => {
       const app = this.editingApp();
       if (app) {
-        this.form = { ...app };
+        this.form = { ...app, reminder: app.reminder || 'none' };
       } else {
         this.form.time = this.initialTime();
         this.form.date = this.initialDate();
         this.form.professional_id = this.db.activeProfessionals()[0]?.id || '';
         this.form.service_id = this.db.activeServices()[0]?.id || '';
+        this.form.reminder = 'none';
       }
       this.checkAvailability();
     });
   }
 
   checkAvailability() {
-    if (!this.form.professional_id || !this.form.time) {
+    if (!this.form.professional_id || !this.form.time || !this.form.service_id) {
       this.hasConflict.set(false);
       return;
     }
     
+    // Busca a duração real do serviço selecionado
+    const service = this.db.services().find(s => s.id === this.form.service_id);
+    const duration = service?.duration || 60;
+
     const conflict = this.db.checkConflict(
       this.form.professional_id, 
       this.form.date || this.initialDate(), 
       this.form.time,
+      duration,
       this.editingApp()?.id
     );
     this.hasConflict.set(conflict);
   }
 
   onClientSaved(client: Client) { this.form.client_id = client.id; }
-  onServiceSaved(service: ServiceItem) { this.form.service_id = service.id; }
+  onServiceSaved(service: ServiceItem) { this.form.service_id = service.id; this.checkAvailability(); }
 
   canSave(): boolean {
     return !!(this.form.client_id && this.form.service_id && this.form.professional_id && !this.hasConflict());
   }
 
   async save() {
-    if (!this.canSave()) return;
+    if (!this.canSave() || this.isSaving() || this.hasConflict()) return;
+    this.isSaving.set(true);
+
     const app = this.editingApp();
+    const data = { ...this.form, date: this.form.date || this.initialDate() };
+
     if (app) {
-      await this.db.updateAppointment({ ...app, ...this.form });
+      await this.db.updateAppointment({ ...app, ...data });
     } else {
-      await this.db.addAppointment({ ...this.form, date: this.form.date || this.initialDate() });
+      await this.db.addAppointment(data);
     }
-    this.close.emit();
+
+    if (this.form.reminder !== 'none') {
+      this.showNotificationSim.set(true);
+      setTimeout(() => {
+        this.showNotificationSim.set(false);
+        this.close.emit();
+      }, 1500);
+    } else {
+      this.close.emit();
+    }
+    
+    this.isSaving.set(false);
   }
 }
 
@@ -347,11 +397,33 @@ export class AppointmentModalComponent {
           <button (click)="close.emit()" class="text-slate-300 hover:text-slate-500 transition-colors"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
         
-        <div class="space-y-6 mb-8">
+        <div class="space-y-5 mb-8 overflow-y-auto no-scrollbar max-h-[70vh]">
+          <div class="flex flex-col items-center gap-3 py-4 bg-slate-50 rounded-[2rem] border border-slate-100 mb-2">
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visualização da Logo</label>
+            <div class="w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg bg-white overflow-hidden group relative">
+              @if (form.logo_url) {
+                <img [src]="form.logo_url" class="w-full h-full object-cover">
+              } @else {
+                <div [style.backgroundColor]="form.branding_color || db.brandColor()" class="w-full h-full flex items-center justify-center">
+                  <i data-lucide="image" class="w-8 h-8 opacity-20" [style.color]="db.brandContrastColor()"></i>
+                </div>
+              }
+            </div>
+          </div>
+
           <div>
             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nome do Estabelecimento</label>
-            <input type="text" [(ngModel)]="form.name" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
+            <input type="text" [(ngModel)]="form.name" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700 focus:ring-2" [style.focusRingColor]="form.branding_color + '20'">
           </div>
+
+          <div>
+            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">URL do Logotipo</label>
+            <div class="relative">
+              <input type="text" [(ngModel)]="form.logo_url" placeholder="https://..." class="w-full pl-5 pr-12 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium text-slate-700 text-sm">
+              <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"><i data-lucide="link" class="w-4 h-4"></i></div>
+            </div>
+          </div>
+
           <div>
             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Cor Principal</label>
             <div class="flex gap-3">
@@ -359,15 +431,16 @@ export class AppointmentModalComponent {
               <input type="text" [(ngModel)]="form.branding_color" class="flex-1 px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-mono text-sm uppercase font-bold text-slate-500">
             </div>
           </div>
+
           <div>
-            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Horário de Funcionamento</label>
+            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Horário</label>
             <input type="text" [(ngModel)]="form.hours" placeholder="Ex: 08:00 - 18:00" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
           </div>
         </div>
 
         <button (click)="save()" 
                 [disabled]="isSaving()"
-                [style.backgroundColor]="db.brandColor()" 
+                [style.backgroundColor]="form.branding_color || db.brandColor()" 
                 [style.color]="db.brandContrastColor()" 
                 class="w-full py-5 rounded-[2rem] font-black text-lg shadow-xl active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-2">
           @if (isSaving()) {
@@ -387,7 +460,7 @@ export class BrandingModalComponent {
   close = output();
   isSaving = signal(false);
 
-  form = { name: '', branding_color: '', hours: '' };
+  form = { name: '', branding_color: '', hours: '', logo_url: '' };
 
   constructor() {
     effect(() => {
@@ -396,7 +469,8 @@ export class BrandingModalComponent {
         this.form = { 
           name: biz.name || '', 
           branding_color: biz.branding_color || '#4f46e5',
-          hours: biz.hours || ''
+          hours: biz.hours || '',
+          logo_url: biz.logo_url || ''
         };
       }
     });
