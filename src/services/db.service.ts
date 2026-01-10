@@ -14,6 +14,8 @@ export interface Business {
 export interface Professional {
   id: string;
   name: string;
+  email: string;
+  status: 'active' | 'inactive';
   business_id: string;
 }
 
@@ -22,6 +24,7 @@ export interface ServiceItem {
   name: string;
   duration: number;
   price: number;
+  status: 'active' | 'inactive';
   business_id: string;
 }
 
@@ -59,6 +62,10 @@ export class DbService {
   business = computed(() => this._business());
   professionals = computed(() => this._professionals());
   services = computed(() => this._services());
+  
+  activeServices = computed(() => this._services().filter(s => s.status === 'active' || !s.status));
+  activeProfessionals = computed(() => this._professionals().filter(p => p.status === 'active'));
+
   clients = computed(() => this._clients());
   appointments = computed(() => this._appointments());
 
@@ -95,25 +102,17 @@ export class DbService {
   }
 
   private getActiveBusinessId(): string {
-    const id = this.auth.currentUser()?.businessId;
-    return id || 'demo-biz';
+    return this.auth.currentUser()?.businessId || 'demo-biz';
   }
 
   private isConfigured(): boolean {
-    // Agora delega a verificação para o SupabaseService que já fez o lookup das chaves
     return this.supabase.isReady;
   }
 
   async loadAllData(businessId: string) {
     if (!this.isConfigured()) {
-      // Se não configurado, garante que pelo menos um objeto de negócio exista para a UI não quebrar
       if (!this._business()) {
-        this._business.set({
-          id: businessId,
-          name: 'Agenda - CRM (Demo)',
-          hours: '08:00 - 18:00',
-          branding_color: '#4f46e5'
-        });
+        this._business.set({ id: businessId, name: 'Agenda - CRM Demo', hours: '08:00 - 18:00', branding_color: '#4f46e5' });
       }
       return;
     }
@@ -137,36 +136,25 @@ export class DbService {
     }
   }
 
-  async saveBusiness(data: Partial<Business>) {
-    const bid = this.getActiveBusinessId();
-    
-    // Atualização Otimista
-    const current = this._business();
-    if (current) {
-      this._business.set({ ...current, ...data });
-    } else {
-      this._business.set({ id: bid, name: 'Agenda - CRM', hours: '08:00 - 18:00', ...data } as Business);
-    }
-
-    if (!this.isConfigured()) return { saved: this._business(), error: null };
-
-    try {
-      const { data: saved, error } = await this.supabase.client
-        .from('businesses')
-        .update(data)
-        .eq('id', bid)
-        .select()
-        .single();
-      
-      if (saved) this._business.set(saved);
-      return { saved, error };
-    } catch (err) {
-      console.error('Save Business Error:', err);
-      return { saved: this._business(), error: err };
-    }
+  checkConflict(profId: string, date: string, time: string, excludeAppId?: string): boolean {
+    return this._appointments().some(a => 
+      a.professional_id === profId && 
+      a.date === date && 
+      a.time === time && 
+      a.id !== excludeAppId &&
+      a.status !== 'cancelled'
+    );
   }
 
-  // Métodos de CRUD simplificados para brevidade, mantendo atualização otimista...
+  async saveBusiness(data: Partial<Business>) {
+    const bid = this.getActiveBusinessId();
+    this._business.update(curr => curr ? { ...curr, ...data } : { id: bid, name: 'Agenda', hours: '08-18', ...data } as Business);
+    if (!this.isConfigured()) return { saved: this._business(), error: null };
+    const { data: saved, error } = await this.supabase.client.from('businesses').update(data).eq('id', bid).select().single();
+    if (saved) this._business.set(saved);
+    return { saved, error };
+  }
+
   getClientName(id: string) { return this._clients().find(c => c.id === id)?.name || 'Cliente'; }
   getServiceName(id: string) { return this._services().find(s => s.id === id)?.name || 'Serviço'; }
   getProfessionalName(id: string) { return this._professionals().find(p => p.id === id)?.name || 'Profissional'; }
@@ -217,7 +205,7 @@ export class DbService {
       this._services.update(p => [...p, mock]);
       return { data: mock, error: null };
     }
-    const { data, error } = await this.supabase.client.from('services').insert({ ...service, business_id: bid }).select().single();
+    const { data, error } = await this.supabase.client.from('services').insert({ ...service, business_id: bid, status: 'active' }).select().single();
     if (data) this._services.update(prev => [...prev, data]);
     return { data, error };
   }
@@ -267,27 +255,6 @@ export class DbService {
     });
   }
 
-  isAvailable(profId: string, date: string, time: string, serviceId: string, excludeAppId?: string): { available: boolean, conflict?: string } {
-    const service = this._services().find(s => s.id === serviceId);
-    if (!service) return { available: true };
-    const duration = service.duration;
-    const [h, m] = time.split(':').map(Number);
-    const startInMinutes = h * 60 + m;
-    const endInMinutes = startInMinutes + duration;
-    const dayApps = this._appointments().filter(a => a.date === date && a.professional_id === profId && a.status !== 'cancelled' && a.id !== excludeAppId);
-    for (const app of dayApps) {
-      const appService = this._services().find(s => s.id === app.service_id);
-      if (!appService) continue;
-      const [ah, am] = app.time.split(':').map(Number);
-      const aStart = ah * 60 + am;
-      const aEnd = aStart + appService.duration;
-      if (startInMinutes < aEnd && endInMinutes > aStart) {
-        return { available: false, conflict: `Conflito com o agendamento de ${this.getClientName(app.client_id)} às ${app.time}` };
-      }
-    }
-    return { available: true };
-  }
-
   async createInitialSetup(businessName: string, profName: string, services: any[]) {
     const bid = 'b-' + Math.random().toString(36).substr(2, 9);
     if (!this.isConfigured()) {
@@ -296,8 +263,8 @@ export class DbService {
     }
     const { data: bus, error: bErr } = await this.supabase.client.from('businesses').insert({ name: businessName, hours: '08:00 - 18:00', branding_color: '#4f46e5' }).select().single();
     if (bErr || !bus) throw new Error("Erro ao criar empresa.");
-    await this.supabase.client.from('professionals').insert({ name: profName, business_id: bus.id });
-    const servicesToInsert = services.map(s => ({ ...s, business_id: bus.id }));
+    await this.supabase.client.from('professionals').insert({ name: profName, email: 'admin@admin.com', status: 'active', business_id: bus.id });
+    const servicesToInsert = services.map(s => ({ ...s, status: 'active', business_id: bus.id }));
     await this.supabase.client.from('services').insert(servicesToInsert);
     return bus.id;
   }

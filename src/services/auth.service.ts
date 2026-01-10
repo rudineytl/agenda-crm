@@ -32,16 +32,18 @@ export class AuthService {
         localStorage.removeItem('bs_user');
       }
     }
-    // Pequeno delay para garantir que o sistema de signals e rotas esteja pronto
-    setTimeout(() => this._isInitialized.set(true), 500);
+    setTimeout(() => this._isInitialized.set(true), 800);
   }
 
   login(email: string) {
+    // No MVP, e-mails específicos podem ser staff ou admin
+    const isStaff = email.includes('staff');
+    
     const mockUser: User = { 
       id: 'u-' + Math.random().toString(36).substr(2, 5), 
       email, 
       name: email.split('@')[0],
-      role: 'admin'
+      role: isStaff ? 'staff' : 'admin'
     };
     
     this._currentUser.set(mockUser);
@@ -53,6 +55,8 @@ export class AuthService {
       this.updateBusiness(savedBusinessId);
       this.router.navigate(['/dashboard']);
     } else {
+      // Se não tem business, mas é staff, precisaria de convite.
+      // Por enquanto, todos caem no onboarding se não tiverem histórico.
       this.router.navigate(['/onboarding']);
     }
   }

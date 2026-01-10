@@ -1,110 +1,80 @@
 
-import { Component, inject, signal } from '@angular/core';
-import { DbService, Business } from '../services/db.service';
+import { Component, inject, signal, computed } from '@angular/core';
+import { DbService } from '../services/db.service';
 import { AuthService } from '../services/auth.service';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { BrandingModalComponent } from './shared/modals.component';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-settings',
-  imports: [FormsModule],
+  standalone: true,
+  imports: [CommonModule, FormsModule, BrandingModalComponent],
   template: `
     <div class="p-6 md:py-10">
       <h1 class="text-3xl font-bold text-slate-800 tracking-tight mb-8">Configurações</h1>
 
-      <div class="max-w-2xl space-y-8">
-        <!-- White Label / Branding Section -->
+      <div class="max-w-2xl space-y-6">
+        
+        <!-- Atalho Branding -->
         <section>
-          <div class="flex justify-between items-end mb-4 ml-1">
-            <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Identidade do Sistema (White Label)</h2>
-            @if (saveSuccess()) {
-              <span class="text-[10px] font-bold text-emerald-500 uppercase animate-bounce">✓ Salvo com sucesso!</span>
-            }
-          </div>
-          <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label class="block text-xs font-bold text-slate-500 mb-2">Nome do Estabelecimento</label>
-                <input type="text" [(ngModel)]="brandingForm.name" class="w-full px-4 py-3 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-100 font-medium">
+          <button (click)="showBrandingModal.set(true)" 
+                  class="w-full bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between hover:border-indigo-100 transition-all group">
+            <div class="flex items-center gap-5">
+              <div [style.backgroundColor]="db.brandColor()" class="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/10">
+                <i data-lucide="palette" [style.color]="db.brandContrastColor()" class="w-7 h-7"></i>
               </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-500 mb-2">Cor Principal da Marca</label>
-                <div class="flex gap-3">
-                  <input type="color" [(ngModel)]="brandingForm.branding_color" class="w-12 h-12 rounded-xl border-none p-1 bg-slate-50 cursor-pointer">
-                  <input type="text" [(ngModel)]="brandingForm.branding_color" class="flex-1 px-4 py-3 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-100 font-mono text-sm uppercase">
-                </div>
+              <div class="text-left">
+                <p class="font-black text-slate-800 text-lg tracking-tight">Identidade Visual</p>
+                <p class="text-xs text-slate-400 font-medium">Logo, cores e horários do {{ db.business()?.name }}</p>
               </div>
             </div>
-            
+            <i data-lucide="chevron-right" class="w-6 h-6 text-slate-300"></i>
+          </button>
+        </section>
+
+        <!-- Equipe & Serviços Section -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button (click)="router.navigate(['/servicos'])" class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-4 hover:border-slate-200 transition-all group text-left">
+            <div class="flex justify-between items-start">
+              <div [style.backgroundColor]="db.brandColor() + '10'" [style.color]="db.brandColor()" class="w-12 h-12 rounded-2xl flex items-center justify-center">
+                <i data-lucide="scissors" class="w-6 h-6"></i>
+              </div>
+              <span class="bg-slate-50 text-slate-500 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">{{ activeServicesCount() }} Ativos</span>
+            </div>
             <div>
-              <label class="block text-xs font-bold text-slate-500 mb-2">URL da Logomarca (PNG/SVG)</label>
-              <input type="text" [(ngModel)]="brandingForm.logo_url" placeholder="https://link-da-sua-logo.com/imagem.png" class="w-full px-4 py-3 rounded-xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-100 font-medium">
+              <p class="font-bold text-slate-800">Serviços</p>
+              <p class="text-xs text-slate-400">Preços e durações</p>
             </div>
-
-            <button (click)="saveBranding()" 
-                    [disabled]="isSaving()"
-                    [style.backgroundColor]="db.brandColor()"
-                    [style.color]="db.brandContrastColor()"
-                    class="w-full py-4 rounded-2xl font-bold shadow-lg hover:brightness-110 transition-all active:scale-[0.99] flex items-center justify-center gap-3 disabled:opacity-50">
-              @if (isSaving()) {
-                <div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Salvando...
-              } @else {
-                <i data-lucide="save" class="w-5 h-5"></i>
-                Atualizar Identidade Visual
-              }
-            </button>
-          </div>
-        </section>
-
-        <!-- Business Section -->
-        <section>
-          <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 ml-1">Funcionamento</h2>
-          <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
-            <div class="p-6 flex justify-between items-center">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-slate-50 text-slate-500 flex items-center justify-center">
-                  <i data-lucide="clock" class="w-4 h-4"></i>
-                </div>
-                <span class="text-sm font-semibold text-slate-600">Horário de Atendimento</span>
+          </button>
+          
+          <button (click)="router.navigate(['/profissionais'])" class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col gap-4 hover:border-slate-200 transition-all group text-left">
+            <div class="flex justify-between items-start">
+              <div [style.backgroundColor]="db.brandColor() + '10'" [style.color]="db.brandColor()" class="w-12 h-12 rounded-2xl flex items-center justify-center">
+                <i data-lucide="users" class="w-6 h-6"></i>
               </div>
-              <input type="text" [(ngModel)]="businessForm.hours" class="text-right font-bold text-slate-800 bg-transparent border-none focus:ring-0">
+              <span class="bg-slate-50 text-slate-500 text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">{{ activeProfsCount() }} Ativos</span>
             </div>
-          </div>
+            <div>
+              <p class="font-bold text-slate-800">Equipe</p>
+              <p class="text-xs text-slate-400">Membros e acesso</p>
+            </div>
+          </button>
         </section>
 
-        <!-- Profile Section -->
-        <section>
-          <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 ml-1">Equipe & Serviços</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button (click)="router.navigate(['/servicos'])" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between hover:border-slate-200 transition-all group text-left">
-              <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <i data-lucide="scissors" class="w-6 h-6"></i>
-                </div>
-                <span class="font-bold text-slate-800">Serviços</span>
-              </div>
-              <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
-            </button>
-            
-            <button (click)="router.navigate(['/profissionais'])" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between hover:border-slate-200 transition-all group text-left">
-              <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                  <i data-lucide="users" class="w-6 h-6"></i>
-                </div>
-                <span class="font-bold text-slate-800">Equipe</span>
-              </div>
-              <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>
-            </button>
-          </div>
+        <section class="pt-6">
+          <button (click)="auth.logout()" class="w-full text-rose-500 font-bold p-6 bg-rose-50/50 border border-rose-100 rounded-[2rem] hover:bg-rose-50 transition-all active:scale-[0.98]">
+            Sair do Sistema
+          </button>
         </section>
-
-        <button (click)="auth.logout()" class="w-full text-rose-500 font-bold p-6 bg-rose-50 rounded-3xl mt-12 hover:bg-rose-100 transition-all active:scale-[0.98]">
-          Sair do Sistema
-        </button>
       </div>
       
-      <p class="text-center text-[10px] text-slate-300 mt-12 font-bold tracking-widest uppercase">Versão 2.1.0 • Agenda - CRM Pro</p>
+      <p class="text-center text-[10px] text-slate-300 mt-12 font-bold tracking-widest uppercase">Agenda - CRM Pro • v2.2.0</p>
+
+      @if (showBrandingModal()) {
+        <app-branding-modal (close)="showBrandingModal.set(false)"></app-branding-modal>
+      }
     </div>
   `
 })
@@ -113,35 +83,8 @@ export class SettingsComponent {
   auth = inject(AuthService);
   router = inject(Router);
 
-  isSaving = signal(false);
-  saveSuccess = signal(false);
+  showBrandingModal = signal(false);
 
-  brandingForm = { 
-    name: this.db.business()?.name || '', 
-    branding_color: this.db.brandColor(),
-    logo_url: this.db.business()?.logo_url || ''
-  };
-
-  businessForm = { 
-    hours: this.db.business()?.hours || '' 
-  };
-
-  async saveBranding() {
-    this.isSaving.set(true);
-    this.saveSuccess.set(false);
-    
-    try {
-      await this.db.saveBusiness({ 
-        ...this.brandingForm, 
-        ...this.businessForm 
-      });
-      
-      this.saveSuccess.set(true);
-      setTimeout(() => this.saveSuccess.set(false), 3000);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      this.isSaving.set(false);
-    }
-  }
+  activeServicesCount = computed(() => this.db.activeServices().length);
+  activeProfsCount = computed(() => this.db.activeProfessionals().length);
 }
