@@ -17,17 +17,33 @@ import { CommonModule } from '@angular/common';
 
       <div class="max-w-2xl space-y-6">
         
+        <!-- Status de Conexão (Novo) -->
+        <section class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between mb-2">
+          <div class="flex items-center gap-4">
+            <div [class]="db.isConfigured() ? 'bg-emerald-500' : 'bg-amber-500'" class="w-3 h-3 rounded-full animate-pulse shadow-sm"></div>
+            <div>
+              <p class="text-xs font-black uppercase tracking-widest text-slate-400">Status do Banco de Dados</p>
+              <p class="font-bold text-slate-700">{{ db.isConfigured() ? 'Conectado ao Cloud (Supabase)' : 'Modo Demonstração (Local)' }}</p>
+            </div>
+          </div>
+          <button (click)="db.loadAllData(auth.currentUser()?.businessId || '')" 
+                  [disabled]="db._loading()"
+                  class="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:text-indigo-500 transition-all disabled:opacity-30">
+            <i data-lucide="refresh-cw" [class]="db._loading() ? 'animate-spin' : ''" class="w-5 h-5"></i>
+          </button>
+        </section>
+
         <!-- Atalho Branding -->
         <section>
           <button (click)="showBrandingModal.set(true)" 
-                  class="w-full bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between hover:border-indigo-100 transition-all group">
+                  class="w-full bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between hover:border-indigo-100 transition-all group text-left">
             <div class="flex items-center gap-5">
               <div [style.backgroundColor]="db.brandColor()" class="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/10">
                 <i data-lucide="palette" [style.color]="db.brandContrastColor()" class="w-7 h-7"></i>
               </div>
-              <div class="text-left">
+              <div>
                 <p class="font-black text-slate-800 text-lg tracking-tight">Identidade Visual</p>
-                <p class="text-xs text-slate-400 font-medium">Logo, cores e horários do {{ db.business()?.name }}</p>
+                <p class="text-xs text-slate-400 font-medium">Logo, cores e horários do seu estabelecimento</p>
               </div>
             </div>
             <i data-lucide="chevron-right" class="w-6 h-6 text-slate-300"></i>
@@ -45,7 +61,7 @@ import { CommonModule } from '@angular/common';
             </div>
             <div>
               <p class="font-bold text-slate-800">Serviços</p>
-              <p class="text-xs text-slate-400">Preços e durações</p>
+              <p class="text-xs text-slate-400">Gerencie preços e durações</p>
             </div>
           </button>
           
@@ -58,7 +74,7 @@ import { CommonModule } from '@angular/common';
             </div>
             <div>
               <p class="font-bold text-slate-800">Equipe</p>
-              <p class="text-xs text-slate-400">Membros e acesso</p>
+              <p class="text-xs text-slate-400">Membros e horários</p>
             </div>
           </button>
         </section>
@@ -70,7 +86,7 @@ import { CommonModule } from '@angular/common';
         </section>
       </div>
       
-      <p class="text-center text-[10px] text-slate-300 mt-12 font-bold tracking-widest uppercase">Agenda - CRM Pro • v2.2.0</p>
+      <p class="text-center text-[10px] text-slate-300 mt-12 font-bold tracking-widest uppercase">Agenda CRM Pro • v2.5.0</p>
 
       @if (showBrandingModal()) {
         <app-branding-modal (close)="showBrandingModal.set(false)"></app-branding-modal>

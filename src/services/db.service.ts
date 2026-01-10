@@ -3,6 +3,66 @@ import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { AuthService } from './auth.service';
 import { SupabaseService } from './supabase.service';
 
+/**
+ * ESQUEMA SQL PARA O SUPABASE (Rode no SQL Editor do Supabase):
+ * 
+ * -- 1. Tabela de Empresas
+ * CREATE TABLE businesses (
+ *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ *   name TEXT NOT NULL,
+ *   hours TEXT,
+ *   branding_color TEXT DEFAULT '#4f46e5',
+ *   logo_url TEXT,
+ *   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+ * );
+ * 
+ * -- 2. Tabela de Profissionais
+ * CREATE TABLE professionals (
+ *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ *   name TEXT NOT NULL,
+ *   email TEXT,
+ *   status TEXT DEFAULT 'active',
+ *   business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+ *   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+ * );
+ * 
+ * -- 3. Tabela de Serviços
+ * CREATE TABLE services (
+ *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ *   name TEXT NOT NULL,
+ *   duration INTEGER NOT NULL,
+ *   price NUMERIC NOT NULL,
+ *   status TEXT DEFAULT 'active',
+ *   business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+ *   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+ * );
+ * 
+ * -- 4. Tabela de Clientes
+ * CREATE TABLE clients (
+ *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ *   name TEXT NOT NULL,
+ *   whatsapp TEXT,
+ *   notes TEXT,
+ *   business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+ *   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+ * );
+ * 
+ * -- 5. Tabela de Agendamentos
+ * CREATE TABLE appointments (
+ *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ *   client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+ *   service_id UUID REFERENCES services(id) ON DELETE CASCADE,
+ *   professional_id UUID REFERENCES professionals(id) ON DELETE CASCADE,
+ *   date DATE NOT NULL,
+ *   time TIME NOT NULL,
+ *   status TEXT DEFAULT 'pending',
+ *   reminder TEXT DEFAULT 'none',
+ *   notes TEXT,
+ *   business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+ *   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+ * );
+ */
+
 export interface Business {
   id: string;
   name: string;
@@ -59,16 +119,16 @@ export class DbService {
   public _services = signal<ServiceItem[]>([]);
   public _clients = signal<Client[]>([]);
   public _appointments = signal<Appointment[]>([]);
+  public _loading = signal(false);
 
   business = computed(() => this._business());
   professionals = computed(() => this._professionals());
   services = computed(() => this._services());
-  
-  activeServices = computed(() => this._services().filter(s => s.status === 'active' || !s.status));
-  activeProfessionals = computed(() => this._professionals().filter(p => p.status === 'active'));
-
   clients = computed(() => this._clients());
   appointments = computed(() => this._appointments());
+
+  activeServices = computed(() => this._services().filter(s => s.status === 'active' || !s.status));
+  activeProfessionals = computed(() => this._professionals().filter(p => p.status === 'active'));
 
   brandColor = computed(() => this._business()?.branding_color || '#4f46e5');
   
@@ -106,41 +166,26 @@ export class DbService {
     return this.auth.currentUser()?.businessId || 'demo-biz';
   }
 
-  private isConfigured(): boolean {
+  isConfigured(): boolean {
     return this.supabase.isReady;
   }
 
-  /**
-   * Converte string de horário (HH:mm) para minutos totais desde a meia-noite.
-   */
   private timeToMinutes(time: string): number {
     if (!time) return 0;
     const [h, m] = time.split(':').map(Number);
     return (h * 60) + m;
   }
 
-  /**
-   * Verifica se há conflito de horário para um profissional, considerando a duração do serviço.
-   * Lógica de Intersecção: (NovoInício < ExistenteFim) && (NovoFim > ExistenteInício)
-   */
   checkConflict(profId: string, date: string, time: string, duration: number, excludeAppId?: string): boolean {
     if (!profId || !date || !time || !duration) return false;
-
     const newStart = this.timeToMinutes(time);
     const newEnd = newStart + duration;
-
     return this._appointments().some(a => {
-      // Ignora cancelados, outros profissionais, outras datas ou o próprio app sendo editado
-      if (a.professional_id !== profId || a.date !== date || a.id === excludeAppId || a.status === 'cancelled') {
-        return false;
-      }
-
+      if (a.professional_id !== profId || a.date !== date || a.id === excludeAppId || a.status === 'cancelled') return false;
       const existingService = this._services().find(s => s.id === a.service_id);
-      const existingDuration = existingService?.duration || 60; // Default 60 se não houver dado
+      const existingDuration = existingService?.duration || 60;
       const existingStart = this.timeToMinutes(a.time);
       const existingEnd = existingStart + existingDuration;
-
-      // Se os intervalos se sobrepõem
       return (newStart < existingEnd && newEnd > existingStart);
     });
   }
@@ -148,11 +193,12 @@ export class DbService {
   async loadAllData(businessId: string) {
     if (!this.isConfigured()) {
       if (!this._business()) {
-        this._business.set({ id: businessId, name: 'Agenda - CRM Demo', hours: '08:00 - 18:00', branding_color: '#4f46e5' });
+        this._business.set({ id: businessId, name: 'Agenda CRM Demo', hours: '08:00 - 18:00', branding_color: '#4f46e5' });
       }
       return;
     }
     
+    this._loading.set(true);
     try {
       const [bus, profs, servs, clis, apps] = await Promise.all([
         this.supabase.client.from('businesses').select('*').eq('id', businessId).maybeSingle(),
@@ -168,14 +214,18 @@ export class DbService {
       this._clients.set(clis.data || []);
       this._appointments.set(apps.data || []);
     } catch (error) {
-      console.error('DbService Load Error:', error);
+      console.error('DbService Sync Error:', error);
+    } finally {
+      this._loading.set(false);
     }
   }
 
   async saveBusiness(data: Partial<Business>) {
     const bid = this.getActiveBusinessId();
-    this._business.update(curr => curr ? { ...curr, ...data } : { id: bid, name: 'Agenda', hours: '08-18', ...data } as Business);
-    if (!this.isConfigured()) return { saved: this._business(), error: null };
+    if (!this.isConfigured()) {
+      this._business.update(curr => curr ? { ...curr, ...data } : { id: bid, ...data } as Business);
+      return { saved: this._business(), error: null };
+    }
     const { data: saved, error } = await this.supabase.client.from('businesses').update(data).eq('id', bid).select().single();
     if (saved) this._business.set(saved);
     return { saved, error };
@@ -199,16 +249,12 @@ export class DbService {
 
   async updateClient(client: Client) {
     this._clients.update(prev => prev.map(c => c.id === client.id ? client : c));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('clients').update(client).eq('id', client.id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('clients').update(client).eq('id', client.id);
   }
 
   async deleteClient(id: string) {
     this._clients.update(prev => prev.filter(c => c.id !== id));
-    if (this.isConfigured()) {
-      await this.supabase.client.from('clients').delete().eq('id', id);
-    }
+    if (this.isConfigured()) await this.supabase.client.from('clients').delete().eq('id', id);
   }
 
   async addAppointment(app: Omit<Appointment, 'id' | 'business_id'>) {
@@ -296,16 +342,18 @@ export class DbService {
   }
 
   async createInitialSetup(businessName: string, profName: string, services: any[]) {
-    const bid = 'b-' + Math.random().toString(36).substr(2, 9);
+    const mockId = 'b-' + Math.random().toString(36).substr(2, 9);
     if (!this.isConfigured()) {
-      this._business.set({ id: bid, name: businessName, hours: '08:00 - 18:00', branding_color: '#4f46e5' });
-      return bid;
+      this._business.set({ id: mockId, name: businessName, hours: '08:00 - 18:00', branding_color: '#4f46e5' });
+      return mockId;
     }
     const { data: bus, error: bErr } = await this.supabase.client.from('businesses').insert({ name: businessName, hours: '08:00 - 18:00', branding_color: '#4f46e5' }).select().single();
     if (bErr || !bus) throw new Error("Erro ao criar empresa.");
     await this.supabase.client.from('professionals').insert({ name: profName, email: 'admin@admin.com', status: 'active', business_id: bus.id });
-    const servicesToInsert = services.map(s => ({ ...s, status: 'active', business_id: bus.id }));
-    await this.supabase.client.from('services').insert(servicesToInsert);
+    if (services.length) {
+      const servicesToInsert = services.map(s => ({ ...s, status: 'active', business_id: bus.id }));
+      await this.supabase.client.from('services').insert(servicesToInsert);
+    }
     return bus.id;
   }
 }
