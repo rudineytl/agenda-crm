@@ -1,11 +1,12 @@
 
 import { Injectable } from '@angular/core';
 import { GoogleGenAI } from "@google/genai";
+import { environment } from '../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AiService {
   private getApiKey(): string {
-    return process.env['API_KEY'] || process.env['NEXT_PUBLIC_GEMINI_API_KEY'] || '';
+    return environment.geminiApiKey;
   }
 
   async getBusinessInsight(data: { appointmentsCount: number, revenue: number, topService: string }): Promise<string> {
@@ -21,7 +22,7 @@ export class AiService {
           systemInstruction: "Você é um consultor de negócios especialista em estética e beleza. Seja breve, profissional e motivador."
         }
       });
-      
+
       return response.text || 'Continue brilhando e oferecendo o melhor serviço!';
     } catch (error) {
       console.error('IA Error:', error);

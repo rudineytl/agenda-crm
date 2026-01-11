@@ -1,6 +1,7 @@
 
 import { Injectable } from '@angular/core';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { environment } from '../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class SupabaseService {
@@ -13,20 +14,15 @@ export class SupabaseService {
 
   private initialize() {
     try {
-      const url = 
-        process.env['NEXT_PUBLIC_SUPABASE_URL'] || 
-        process.env['SUPABASE_URL'] || 
-        '';
-
-      const key = 
-        process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || 
-        process.env['SUPABASE_KEY'] || 
-        '';
+      const url = environment.supabaseUrl;
+      const key = environment.supabaseAnonKey;
 
       if (url && key && url.startsWith('http')) {
         this.client = createClient(url, key);
         this.isReady = true;
+        console.log('Supabase initialized successfully');
       } else {
+        console.warn('Supabase credentials not configured, using placeholder');
         this.createPlaceholderClient();
       }
     } catch (error) {

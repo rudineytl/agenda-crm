@@ -1,11 +1,11 @@
-
 {
   "name": "belezarara-gestao-simples",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "start": "ng serve",
-    "build": "ng build"
+    "build": "ng build --configuration production",
+    "dev": "ng serve"
   },
   "dependencies": {
     "@angular/common": "^21.0.8",
