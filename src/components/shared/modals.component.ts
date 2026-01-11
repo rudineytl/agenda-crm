@@ -32,7 +32,7 @@ import { DbService, Appointment, Client, ServiceItem, Business } from '../../ser
             {{ db.getServiceName(app().service_id) }}
           </span>
           <span class="text-slate-300 text-[10px]">•</span>
-          <span class="text-[10px] text-slate-400 font-medium truncate">
+          <span class="text-[10px] text-indigo-500 font-black uppercase tracking-widest truncate">
             {{ db.getProfessionalName(app().professional_id) }}
           </span>
         </div>
@@ -203,9 +203,9 @@ export class ServiceModalComponent {
   imports: [CommonModule, FormsModule, ClientModalComponent, ServiceModalComponent],
   template: `
     <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div class="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
+      <div class="bg-white w-full max-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
         <div class="flex justify-between items-center mb-6">
-          <h3 class="text-2xl font-bold text-slate-800 tracking-tight">{{ editingApp() ? 'Gerenciar' : 'Agendar' }}</h3>
+          <h3 class="text-2xl font-bold text-slate-800 tracking-tight">{{ editingApp() ? 'Gerenciar' : 'Novo Agendamento' }}</h3>
           <button (click)="close.emit()" class="text-slate-300 p-2 hover:bg-slate-50 rounded-full transition-colors"><i data-lucide="x" class="w-7 h-7"></i></button>
         </div>
 
@@ -222,58 +222,69 @@ export class ServiceModalComponent {
         }
 
         <div class="space-y-5 mb-8 overflow-y-auto no-scrollbar max-h-[60vh] px-1">
+          <!-- Seção de Cliente -->
           <div>
             <div class="flex justify-between items-center mb-1.5">
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cliente</label>
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quem será atendido?</label>
               <button (click)="showQuickClient.set(true)" [style.color]="db.brandColor()" class="text-[10px] font-black uppercase flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Novo</button>
             </div>
-            <select [(ngModel)]="form.client_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
-              <option value="" disabled>Quem será atendido?</option>
+            <select [(ngModel)]="form.client_id" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700 shadow-inner">
+              <option value="" disabled>Selecione o cliente...</option>
               @for (c of db.clients(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
             </select>
           </div>
 
-          <div>
-            <div class="flex justify-between items-center mb-1.5">
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Serviço</label>
-              <button (click)="showQuickService.set(true)" [style.color]="db.brandColor()" class="text-[10px] font-black uppercase flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Novo</button>
+          <!-- Seção de Serviço e Profissional (Agrupados) -->
+          <div class="p-4 bg-slate-50/50 rounded-[2rem] border border-slate-100 space-y-5">
+            <div>
+              <div class="flex justify-between items-center mb-1.5">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">O que será feito?</label>
+                <button (click)="showQuickService.set(true)" [style.color]="db.brandColor()" class="text-[10px] font-black uppercase flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Novo</button>
+              </div>
+              <select [(ngModel)]="form.service_id" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-white border border-slate-100 outline-none font-bold text-slate-700">
+                <option value="" disabled>Selecione o serviço...</option>
+                @for (s of db.activeServices(); track s.id) { <option [value]="s.id">{{ s.name }} ({{ s.duration }} min)</option> }
+              </select>
             </div>
-            <select [(ngModel)]="form.service_id" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
-              <option value="" disabled>Qual o procedimento?</option>
-              @for (s of db.activeServices(); track s.id) { <option [value]="s.id">{{ s.name }} ({{ s.duration }} min)</option> }
-            </select>
+
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Quem realizará o serviço?</label>
+              <select [(ngModel)]="form.professional_id" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-white border border-slate-100 outline-none font-bold text-slate-700">
+                <option value="" disabled>Escolha o profissional...</option>
+                @for (p of db.activeProfessionals(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Lembrete WhatsApp</label>
-            <select [(ngModel)]="form.reminder" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
-              <option value="none">Sem lembrete</option>
-              <option value="1h">1 hora antes</option>
-              <option value="2h">2 horas antes</option>
-              <option value="24h">1 dia antes</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Profissional Responsável</label>
-            <select [(ngModel)]="form.professional_id" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700">
-              <option value="" disabled>Selecione...</option>
-              @for (p of db.activeProfessionals(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
-            </select>
+          <!-- Quando? Data e Horário -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Data</label>
+              <input type="date" [(ngModel)]="form.date" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700 shadow-inner">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Horário</label>
+              <input type="time" [(ngModel)]="form.time" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-black text-slate-800 text-center shadow-inner">
+            </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Horário</label>
-              <input type="time" [(ngModel)]="form.time" (change)="checkAvailability()" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-black text-slate-800 text-center">
-            </div>
-            <div>
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
-              <select [(ngModel)]="form.status" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700 text-center">
+            <div class="col-span-1">
+              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status</label>
+              <select [(ngModel)]="form.status" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700 shadow-inner">
                 <option value="pending">Pendente</option>
                 <option value="confirmed">Confirmado</option>
                 <option value="completed">Concluído</option>
                 <option value="cancelled">Cancelado</option>
+              </select>
+            </div>
+            <div class="col-span-1">
+              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Lembrete (WhatsApp)</label>
+              <select [(ngModel)]="form.reminder" class="w-full px-4 py-4 rounded-2xl bg-slate-50 border-none outline-none font-bold text-slate-700 shadow-inner">
+                <option value="none">Nenhum</option>
+                <option value="1h">1 hora</option>
+                <option value="2h">2 horas</option>
+                <option value="24h">24 horas</option>
               </select>
             </div>
           </div>
@@ -281,13 +292,17 @@ export class ServiceModalComponent {
           @if (hasConflict()) {
             <div class="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-center gap-3 animate-in shake duration-300">
                <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-500"></i>
-               <p class="text-xs font-bold text-rose-600">Conflito de Horário! O profissional estará ocupado neste intervalo.</p>
+               <p class="text-xs font-bold text-rose-600">Este profissional já tem um agendamento neste horário!</p>
             </div>
           }
         </div>
 
-        <button (click)="save()" [disabled]="!canSave() || isSaving() || hasConflict()" [style.backgroundColor]="db.brandColor()" [style.color]="db.brandContrastColor()" class="w-full py-5 rounded-[2rem] font-black text-lg shadow-xl active:scale-[0.98] disabled:opacity-50 transition-all">
-          {{ editingApp() ? 'Salvar Alterações' : 'Confirmar Agendamento' }}
+        <button (click)="save()" 
+                [disabled]="!canSave() || isSaving() || hasConflict()" 
+                [style.backgroundColor]="db.brandColor()" 
+                [style.color]="db.brandContrastColor()" 
+                class="w-full py-5 rounded-[2rem] font-black text-lg shadow-xl active:scale-[0.98] disabled:opacity-50 transition-all">
+          {{ editingApp() ? 'Salvar Alterações' : 'Finalizar Agendamento' }}
         </button>
       </div>
     </div>
@@ -323,7 +338,8 @@ export class AppointmentModalComponent {
       } else {
         this.form.time = this.initialTime();
         this.form.date = this.initialDate();
-        this.form.professional_id = this.db.activeProfessionals()[0]?.id || '';
+        // Não pré-selecionamos profissional para garantir que o usuário faça a escolha
+        this.form.professional_id = ''; 
         this.form.service_id = this.db.activeServices()[0]?.id || '';
         this.form.reminder = 'none';
       }
@@ -332,18 +348,17 @@ export class AppointmentModalComponent {
   }
 
   checkAvailability() {
-    if (!this.form.professional_id || !this.form.time || !this.form.service_id) {
+    if (!this.form.professional_id || !this.form.time || !this.form.service_id || !this.form.date) {
       this.hasConflict.set(false);
       return;
     }
     
-    // Busca a duração real do serviço selecionado
     const service = this.db.services().find(s => s.id === this.form.service_id);
     const duration = service?.duration || 60;
 
     const conflict = this.db.checkConflict(
       this.form.professional_id, 
-      this.form.date || this.initialDate(), 
+      this.form.date, 
       this.form.time,
       duration,
       this.editingApp()?.id
@@ -355,7 +370,7 @@ export class AppointmentModalComponent {
   onServiceSaved(service: ServiceItem) { this.form.service_id = service.id; this.checkAvailability(); }
 
   canSave(): boolean {
-    return !!(this.form.client_id && this.form.service_id && this.form.professional_id && !this.hasConflict());
+    return !!(this.form.client_id && this.form.service_id && this.form.professional_id && this.form.date && !this.hasConflict());
   }
 
   async save() {
@@ -363,7 +378,7 @@ export class AppointmentModalComponent {
     this.isSaving.set(true);
 
     const app = this.editingApp();
-    const data = { ...this.form, date: this.form.date || this.initialDate() };
+    const data = { ...this.form };
 
     if (app) {
       await this.db.updateAppointment({ ...app, ...data });
