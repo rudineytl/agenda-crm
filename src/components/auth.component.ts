@@ -54,68 +54,51 @@ import { FormsModule } from '@angular/forms';
           </div>
 
           <div class="text-center md:text-left mb-10">
-            <h2 class="text-3xl font-black text-slate-900 mb-2">Bem-vindo de volta!</h2>
-            <p class="text-slate-500 font-medium">Escolha como deseja acessar sua conta.</p>
+            <h2 class="text-3xl font-black text-slate-900 mb-2">Bem-vindo!</h2>
+            <p class="text-slate-500 font-medium">Acesse sua conta ou crie uma nova em segundos.</p>
           </div>
 
           <div class="space-y-5">
-            @if (!codeSent()) {
+            @if (!emailSent()) {
               <!-- Login Inicial -->
               <div class="space-y-4">
                 <div class="relative group">
-                  <label class="absolute left-4 top-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest transition-all group-focus-within:text-indigo-600">E-mail ou Usuário</label>
+                  <label class="absolute left-4 top-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest transition-all group-focus-within:text-indigo-600">Seu E-mail</label>
                   <input 
-                    type="text" 
-                    [(ngModel)]="identifier" 
-                    placeholder="exemplo@agenda.com" 
+                    type="email" 
+                    [(ngModel)]="email" 
+                    placeholder="voce@exemplo.com" 
                     class="w-full pl-4 pr-4 pt-6 pb-3 rounded-2xl bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 outline-none transition-all font-semibold text-slate-700"
                   >
                 </div>
 
-                <button (click)="sendCode()" 
-                        [disabled]="!identifier"
+                <button (click)="sendMagicLink()" 
+                        [disabled]="!email || loading()"
                         class="w-full bg-slate-900 text-white py-5 rounded-2xl font-bold shadow-xl shadow-slate-200 hover:bg-slate-800 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50">
-                  Entrar no CRM
-                  <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                  {{ loading() ? 'Enviando link...' : 'Entrar com Link Mágico' }}
+                  <i data-lucide="mail" class="w-5 h-5"></i>
                 </button>
 
-                <div class="relative py-4">
-                  <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
-                  <div class="relative flex justify-center text-xs uppercase"><span class="bg-slate-50 px-3 text-slate-400 font-bold tracking-widest">ACESSO RÁPIDO</span></div>
-                </div>
-
-                <button (click)="quickAccess()" 
-                        class="w-full bg-white text-indigo-600 border-2 border-indigo-100 py-5 rounded-2xl font-bold hover:bg-indigo-50 active:scale-[0.98] transition-all flex items-center justify-center gap-3">
-                  <i data-lucide="play-circle" class="w-6 h-6"></i>
-                  Ver Demonstração
-                </button>
+                <p class="text-center text-xs text-slate-400 font-medium px-8">
+                  Nenhum código para decorar. Enviamos um link seguro direto para sua caixa de entrada.
+                </p>
               </div>
             } @else {
-              <!-- Verificação de Código -->
+              <!-- Link Enviado -->
               <div class="space-y-6 animate-in slide-in-from-right duration-300">
-                <div class="text-center p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
-                  <p class="text-sm text-indigo-600 font-medium">Enviamos um código para</p>
-                  <p class="font-bold text-indigo-900">{{ identifier }}</p>
+                <div class="text-center p-8 bg-indigo-50 rounded-[2.5rem] border border-indigo-100">
+                  <div class="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 mx-auto mb-6 rotate-3">
+                    <i data-lucide="check-circle" class="w-8 h-8"></i>
+                  </div>
+                  <h3 class="text-2xl font-black text-indigo-900 mb-2">Verifique seu e-mail</h3>
+                  <p class="text-indigo-600 font-medium leading-relaxed">
+                    Enviamos um link de acesso para <br>
+                    <span class="font-bold text-indigo-900">{{ email }}</span>.
+                  </p>
                 </div>
 
-                <div class="flex gap-2 justify-center">
-                  <input 
-                    type="text" 
-                    maxlength="4" 
-                    [(ngModel)]="code" 
-                    placeholder="0000" 
-                    class="w-32 text-center text-3xl font-black tracking-[0.5em] py-5 rounded-2xl bg-white border-2 border-slate-200 focus:border-indigo-500 outline-none transition-all text-slate-800 shadow-inner"
-                  >
-                </div>
-
-                <button (click)="verifyCode()" 
-                        [disabled]="code.length < 4"
-                        class="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold shadow-xl shadow-emerald-100 hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50">
-                  Confirmar e Entrar
-                </button>
-
-                <button (click)="codeSent.set(false)" class="w-full text-slate-400 text-sm font-bold hover:text-slate-600 transition-colors uppercase tracking-widest">
-                  Voltar
+                <button (click)="emailSent.set(false)" class="w-full text-slate-400 text-sm font-bold hover:text-slate-600 transition-colors uppercase tracking-widest">
+                  Tentar outro e-mail
                 </button>
               </div>
             }
@@ -127,22 +110,22 @@ import { FormsModule } from '@angular/forms';
 })
 export class AuthComponent {
   auth = inject(AuthService);
-  identifier = '';
-  code = '';
-  codeSent = signal(false);
+  email = '';
+  loading = signal(false);
+  emailSent = signal(false);
 
-  sendCode() {
-    if (!this.identifier) return;
-    this.codeSent.set(true);
-  }
-
-  verifyCode() {
-    if (this.code.length === 4) {
-      this.auth.login(this.identifier);
+  async sendMagicLink() {
+    if (!this.email) return;
+    this.loading.set(true);
+    try {
+      const { error } = await this.auth.login(this.email);
+      if (!error) {
+        this.emailSent.set(true);
+      } else {
+        alert('Erro ao enviar e-mail: ' + error.message);
+      }
+    } finally {
+      this.loading.set(false);
     }
-  }
-
-  quickAccess() {
-    this.auth.login('demo@agendacrm.com');
   }
 }

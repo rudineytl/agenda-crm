@@ -83,6 +83,10 @@ export class AppointmentCardComponent {
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">WhatsApp</label>
             <input type="tel" [(ngModel)]="form.whatsapp" placeholder="(00) 00000-0000" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium text-slate-700 focus:ring-2" [style.focusRingColor]="db.brandColor() + '20'">
           </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Data de Nascimento</label>
+            <input type="date" [(ngModel)]="form.birth_date" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-none outline-none font-medium text-slate-700 focus:ring-2" [style.focusRingColor]="db.brandColor() + '20'">
+          </div>
         </div>
         <div class="flex gap-3">
           <button (click)="close.emit()" class="flex-1 py-4 text-slate-400 font-bold text-sm">Cancelar</button>
@@ -98,13 +102,17 @@ export class ClientModalComponent {
   close = output();
   saved = output<Client>();
 
-  form = { name: '', whatsapp: '' };
+  form = { name: '', whatsapp: '', birth_date: '' };
 
   constructor() {
     effect(() => {
       const client = this.editingClient();
       if (client) {
-        this.form = { name: client.name, whatsapp: client.whatsapp };
+        this.form = {
+          name: client.name,
+          whatsapp: client.whatsapp,
+          birth_date: client.birth_date || ''
+        };
       }
     });
   }
@@ -175,11 +183,11 @@ export class ServiceModalComponent {
     effect(() => {
       const service = this.editingService();
       if (service) {
-        this.form = { 
-          name: service.name, 
-          price: service.price, 
-          duration: service.duration, 
-          status: service.status || 'active' 
+        this.form = {
+          name: service.name,
+          price: service.price,
+          duration: service.duration,
+          status: service.status || 'active'
         };
       }
     });
@@ -339,7 +347,7 @@ export class AppointmentModalComponent {
         this.form.time = this.initialTime();
         this.form.date = this.initialDate();
         // Não pré-selecionamos profissional para garantir que o usuário faça a escolha
-        this.form.professional_id = ''; 
+        this.form.professional_id = '';
         this.form.service_id = this.db.activeServices()[0]?.id || '';
         this.form.reminder = 'none';
       }
@@ -352,13 +360,13 @@ export class AppointmentModalComponent {
       this.hasConflict.set(false);
       return;
     }
-    
+
     const service = this.db.services().find(s => s.id === this.form.service_id);
     const duration = service?.duration || 60;
 
     const conflict = this.db.checkConflict(
-      this.form.professional_id, 
-      this.form.date, 
+      this.form.professional_id,
+      this.form.date,
       this.form.time,
       duration,
       this.editingApp()?.id
@@ -395,7 +403,7 @@ export class AppointmentModalComponent {
     } else {
       this.close.emit();
     }
-    
+
     this.isSaving.set(false);
   }
 }
@@ -481,8 +489,8 @@ export class BrandingModalComponent {
     effect(() => {
       const biz = this.db.business();
       if (biz) {
-        this.form = { 
-          name: biz.name || '', 
+        this.form = {
+          name: biz.name || '',
           branding_color: biz.branding_color || '#4f46e5',
           hours: biz.hours || '',
           logo_url: biz.logo_url || ''

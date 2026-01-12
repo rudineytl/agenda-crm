@@ -1,6 +1,6 @@
 
 import { Component, inject, computed, effect, signal } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { DbService } from './services/db.service';
 
@@ -139,6 +139,7 @@ import { DbService } from './services/db.service';
 export class AppComponent {
   auth = inject(AuthService);
   db = inject(DbService);
+  router = inject(Router);
 
   menuItems = [
     { link: '/dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
@@ -148,7 +149,35 @@ export class AppComponent {
     { link: '/configuracoes', label: 'Ajustes', icon: 'settings' }
   ];
 
-  constructor() {
+  constructor(private router_inj: Router) {
+    effect(() => {
+      const user = this.auth.currentUser();
+      const initialized = this.auth.isInitialized();
+      const currentUrl = window.location.href;
+      const hasAuthToken = currentUrl.includes('access_token=') ||
+        currentUrl.includes('code=') ||
+        currentUrl.includes('token_hash=') ||
+        currentUrl.includes('type=recovery');
+
+      if (initialized) {
+        if (user) {
+          // Se logado e sem empresa, manda pro onboarding (a menos que já esteja lá)
+          if (!user.businessId && !currentUrl.includes('onboarding')) {
+            this.router.navigate(['/onboarding']);
+          }
+          // Se logado e com empresa, e tentou ir pro login ou raiz, vai pro dashboard
+          else if (user.businessId && (currentUrl.includes('login') || currentUrl.endsWith('/#') || currentUrl.endsWith(window.location.origin + '/'))) {
+            this.router.navigate(['/dashboard']);
+          }
+        } else {
+          // Se NÃO está logado, NÃO tem token na URL e NÃO está na página de login, redireciona
+          if (!hasAuthToken && !currentUrl.includes('login')) {
+            this.router.navigate(['/login']);
+          }
+        }
+      }
+    });
+
     effect(() => {
       const businessName = this.db.business()?.name;
       document.title = businessName ? `${businessName} - Agenda CRM` : 'Agenda - CRM - Gestão Profissional';

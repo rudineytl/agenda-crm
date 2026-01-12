@@ -1,11 +1,10 @@
 // This file will be used for production builds
-// Environment variables will be injected by Vercel at build time
-declare const process: any;
+// We use safe property access to avoid "process is not defined" errors in browser
 
 export const environment = {
     production: true,
-    supabaseUrl: process.env['NEXT_PUBLIC_SUPABASE_URL'] || '',
-    supabaseAnonKey: process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || '',
-    geminiApiKey: process.env['NEXT_PUBLIC_GEMINI_API_KEY'] || ''
+    supabaseUrl: 'https://rgopaiangusbhsecbtpg.supabase.co',
+    supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnb3BhaWFuZ3VzYmhzZWNidHBnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5ODk1NTUsImV4cCI6MjA4MzU2NTU1NX0.ueGGdB83i_pei3Ntv-zFwdd9OAXukIIqvRFk5r8_9Os',
+    geminiApiKey: ''
 };
 

@@ -49,7 +49,7 @@ export class OnboardingComponent {
   db = inject(DbService);
   auth = inject(AuthService);
   private router = inject(Router);
-  
+
   loading = signal(false);
   bName = '';
   pName = '';
@@ -59,13 +59,21 @@ export class OnboardingComponent {
     this.loading.set(true);
 
     try {
-      // Cria empresa e profissional sem exigir serviços iniciais para maior fluidez
+      // 1. Create business and professional
       const businessId = await this.db.createInitialSetup(this.bName, this.pName, []);
-      
-      this.auth.updateBusiness(businessId);
-      this.auth.updateProfile(this.pName, 'admin');
 
+      // 2. Link profile to business (sets as admin)
+      await this.auth.updateBusiness(businessId);
+
+      // 3. Load data to get the professional ID that was created
       await this.db.loadAllData(businessId);
+      const professional = this.db.professionals().find(p => p.name === this.pName);
+
+      if (professional) {
+        // 4. Link profile to professional
+        await this.auth.updateProfessional(professional.id);
+      }
+
       this.router.navigate(['/dashboard']);
     } catch (e) {
       console.error(e);

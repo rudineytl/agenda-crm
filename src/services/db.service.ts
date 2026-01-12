@@ -32,6 +32,7 @@ export interface Client {
   id: string;
   name: string;
   whatsapp: string;
+  birth_date?: string;
   notes?: string;
   business_id: string;
 }
@@ -58,6 +59,33 @@ export class DbService {
   public _professionals = signal<Professional[]>([]);
   public _services = signal<ServiceItem[]>([]);
   public _clients = signal<Client[]>([]);
+
+  weeklyBirthdays = computed(() => {
+    const clients = this._clients();
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    return clients.filter(client => {
+      if (!client.birth_date) return false;
+
+      const [year, month, day] = client.birth_date.split('-').map(Number);
+      const birthDate = new Date(today.getFullYear(), month - 1, day);
+
+      // Check if birthday falls within this week (of any year)
+      return birthDate >= startOfWeek && birthDate <= endOfWeek;
+    }).sort((a, b) => {
+      const [ya, ma, da] = a.birth_date!.split('-').map(Number);
+      const [yb, mb, db] = b.birth_date!.split('-').map(Number);
+      return ma !== mb ? ma - mb : da - db;
+    });
+  });
+
   public _appointments = signal<Appointment[]>([]);
   public _loading = signal(false);
   public lastSync = signal<Date | null>(null);
@@ -66,13 +94,20 @@ export class DbService {
   professionals = computed(() => this._professionals());
   services = computed(() => this._services());
   clients = computed(() => this._clients());
-  appointments = computed(() => this._appointments());
+  appointments = computed(() => {
+    const user = this.auth.currentUser();
+    const allApps = this._appointments();
+    if (user?.role === 'staff' && user.professionalId) {
+      return allApps.filter(a => a.professional_id === user.professionalId);
+    }
+    return allApps;
+  });
 
   activeServices = computed(() => this._services().filter(s => s.status === 'active' || !s.status));
   activeProfessionals = computed(() => this._professionals().filter(p => p.status === 'active'));
 
   brandColor = computed(() => this._business()?.branding_color || '#4f46e5');
-  
+
   brandContrastColor = computed(() => {
     const color = this.brandColor();
     const hex = color.startsWith('#') ? color.replace('#', '') : '4f46e5';
@@ -105,7 +140,9 @@ export class DbService {
   }
 
   private getActiveBusinessId(): string {
-    return this.auth.currentUser()?.businessId || 'demo-biz';
+    const id = this.auth.currentUser()?.businessId;
+    if (!id) throw new Error('Usuário sem empresa vinculada');
+    return id;
   }
 
   isConfigured(): boolean {
@@ -140,7 +177,7 @@ export class DbService {
       this.lastSync.set(new Date());
       return;
     }
-    
+
     this._loading.set(true);
     try {
       const [bus, profs, servs, clis, apps] = await Promise.all([
@@ -181,11 +218,6 @@ export class DbService {
 
   async addClient(client: Omit<Client, 'id' | 'business_id'>) {
     const bid = this.getActiveBusinessId();
-    if (!this.isConfigured()) {
-      const mock: Client = { ...client, id: 'c-' + Date.now(), business_id: bid };
-      this._clients.update(p => [...p, mock]);
-      return { data: mock, error: null };
-    }
     const { data, error } = await this.supabase.client.from('clients').insert({ ...client, business_id: bid }).select().single();
     if (data) this._clients.update(prev => [...prev, data]);
     return { data, error };
@@ -203,11 +235,6 @@ export class DbService {
 
   async addAppointment(app: Omit<Appointment, 'id' | 'business_id'>) {
     const bid = this.getActiveBusinessId();
-    if (!this.isConfigured()) {
-      const mock: Appointment = { ...app, id: 'a-' + Date.now(), business_id: bid };
-      this._appointments.update(p => [...p, mock]);
-      return { data: mock, error: null };
-    }
     const { data, error } = await this.supabase.client.from('appointments').insert({ ...app, business_id: bid }).select().single();
     if (data) this._appointments.update(prev => [...prev, data]);
     return { data, error };
@@ -230,11 +257,6 @@ export class DbService {
 
   async addService(service: Omit<ServiceItem, 'id' | 'business_id'>) {
     const bid = this.getActiveBusinessId();
-    if (!this.isConfigured()) {
-      const mock: ServiceItem = { ...service, id: 's-' + Date.now(), business_id: bid };
-      this._services.update(p => [...p, mock]);
-      return { data: mock, error: null };
-    }
     const { data, error } = await this.supabase.client.from('services').insert({ ...service, business_id: bid, status: 'active' }).select().single();
     if (data) this._services.update(prev => [...prev, data]);
     return { data, error };
@@ -252,11 +274,6 @@ export class DbService {
 
   async addProfessional(prof: Omit<Professional, 'id' | 'business_id'>) {
     const bid = this.getActiveBusinessId();
-    if (!this.isConfigured()) {
-      const mock: Professional = { ...prof, id: 'p-' + Date.now(), business_id: bid };
-      this._professionals.update(p => [...p, mock]);
-      return { data: mock, error: null };
-    }
     const { data, error } = await this.supabase.client.from('professionals').insert({ ...prof, business_id: bid }).select().single();
     if (data) this._professionals.update(prev => [...prev, data]);
     return { data, error };
@@ -286,15 +303,12 @@ export class DbService {
   }
 
   async createInitialSetup(businessName: string, profName: string, services: any[]) {
-    const mockId = 'b-' + Math.random().toString(36).substr(2, 9);
-    if (!this.isConfigured()) {
-      this._business.set({ id: mockId, name: businessName, hours: '08:00 - 18:00', branding_color: '#4f46e5' });
-      this.lastSync.set(new Date());
-      return mockId;
-    }
     const { data: bus, error: bErr } = await this.supabase.client.from('businesses').insert({ name: businessName, hours: '08:00 - 18:00', branding_color: '#4f46e5' }).select().single();
     if (bErr || !bus) throw new Error("Erro ao criar empresa.");
-    await this.supabase.client.from('professionals').insert({ name: profName, email: 'admin@admin.com', status: 'active', business_id: bus.id });
+
+    const userEmail = this.auth.currentUser()?.email || 'admin@admin.com';
+    await this.supabase.client.from('professionals').insert({ name: profName, email: userEmail, status: 'active', business_id: bus.id });
+
     if (services.length) {
       const servicesToInsert = services.map(s => ({ ...s, status: 'active', business_id: bus.id }));
       await this.supabase.client.from('services').insert(servicesToInsert);
