@@ -1,0 +1,87 @@
+
+<div class="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+  
+  <!-- Sidebar para Desktop -->
+  @if (auth.isAuthenticated()) {
+    <aside class="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col h-screen sticky top-0">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-8">
+          <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+            <i data-lucide="sparkles" class="w-6 h-6"></i>
+          </div>
+          <span class="font-bold text-xl text-slate-800 tracking-tight">BelezaSimples</span>
+        </div>
+
+        <nav class="space-y-2">
+          <a routerLink="/dashboard" routerLinkActive="bg-indigo-50 text-indigo-600" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-medium hover:bg-slate-50 transition-colors">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+            Dashboard
+          </a>
+          <a routerLink="/agenda" routerLinkActive="bg-indigo-50 text-indigo-600" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-medium hover:bg-slate-50 transition-colors">
+            <i data-lucide="calendar" class="w-5 h-5"></i>
+            Agenda
+          </a>
+          <a routerLink="/clientes" routerLinkActive="bg-indigo-50 text-indigo-600" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-medium hover:bg-slate-50 transition-colors">
+            <i data-lucide="users" class="w-5 h-5"></i>
+            Clientes
+          </a>
+          <a routerLink="/caixa" routerLinkActive="bg-indigo-50 text-indigo-600" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-medium hover:bg-slate-50 transition-colors">
+            <i data-lucide="wallet" class="w-5 h-5"></i>
+            Caixa
+          </a>
+          <a routerLink="/configuracoes" routerLinkActive="bg-indigo-50 text-indigo-600" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-medium hover:bg-slate-50 transition-colors">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+            Ajustes
+          </a>
+        </nav>
+      </div>
+      
+      <div class="mt-auto p-6 border-t border-slate-100">
+        <button (click)="auth.logout()" class="flex items-center gap-3 px-4 py-2 w-full text-rose-500 font-medium hover:bg-rose-50 rounded-xl transition-colors">
+          <i data-lucide="log-out" class="w-5 h-5"></i>
+          Sair
+        </button>
+      </div>
+    </aside>
+  }
+
+  <!-- Área de Conteúdo Principal -->
+  <main class="flex-1 w-full max-w-6xl mx-auto md:px-8 pb-24 md:pb-8 overflow-y-auto">
+    <router-outlet></router-outlet>
+  </main>
+
+  <!-- Mobile Bottom Nav -->
+  @if (auth.isAuthenticated()) {
+    <nav class="fixed bottom-0 w-full bg-white border-t border-slate-100 px-6 py-3 flex justify-between items-center z-50 md:hidden">
+      <a routerLink="/dashboard" routerLinkActive="text-indigo-600" class="flex flex-col items-center text-slate-400">
+        <i data-lucide="home" class="w-6 h-6"></i>
+        <span class="text-[10px] mt-1 font-medium">Início</span>
+      </a>
+      <a routerLink="/agenda" routerLinkActive="text-indigo-600" class="flex flex-col items-center text-slate-400">
+        <i data-lucide="calendar" class="w-6 h-6"></i>
+        <span class="text-[10px] mt-1 font-medium">Agenda</span>
+      </a>
+      <a routerLink="/clientes" routerLinkActive="text-indigo-600" class="flex flex-col items-center text-slate-400">
+        <i data-lucide="users" class="w-6 h-6"></i>
+        <span class="text-[10px] mt-1 font-medium">Clientes</span>
+      </a>
+      <a routerLink="/caixa" routerLinkActive="text-indigo-600" class="flex flex-col items-center text-slate-400">
+        <i data-lucide="wallet" class="w-6 h-6"></i>
+        <span class="text-[10px] mt-1 font-medium">Caixa</span>
+      </a>
+      <a routerLink="/configuracoes" routerLinkActive="text-indigo-600" class="flex flex-col items-center text-slate-400">
+        <i data-lucide="settings" class="w-6 h-6"></i>
+        <span class="text-[10px] mt-1 font-medium">Ajustes</span>
+      </a>
+    </nav>
+  }
+</div>
+
+<script>
+  // Inicializa ícones lucide
+  setInterval(() => {
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  }, 500);
+</script>
