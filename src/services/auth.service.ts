@@ -27,9 +27,21 @@ export class AuthService {
   }
 
   private async init() {
-    // Wait for supabase to be ready
+    if (typeof window === 'undefined') {
+      this._isInitialized.set(true);
+      return;
+    }
+
+    // Wait for supabase to be ready (max 5 seconds)
+    let retries = 0;
+    while (!this.supabase.isReady && retries < 10) {
+      await new Promise(r => setTimeout(r, 500));
+      retries++;
+    }
+
     if (!this.supabase.isReady) {
-      setTimeout(() => this.init(), 500);
+      console.error('Supabase failed to initialize after 5 seconds');
+      this._isInitialized.set(true); // Proceed anyway to show login/error state
       return;
     }
 

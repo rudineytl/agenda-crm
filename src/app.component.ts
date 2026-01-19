@@ -151,6 +151,7 @@ export class AppComponent {
 
   constructor(private router_inj: Router) {
     effect(() => {
+      if (typeof window === 'undefined') return;
       const user = this.auth.currentUser();
       const initialized = this.auth.isInitialized();
       const currentUrl = window.location.href;
@@ -184,8 +185,10 @@ export class AppComponent {
     });
 
     // Refresh icons lucide
-    setInterval(() => {
-      if ((window as any).lucide) (window as any).lucide.createIcons();
-    }, 500);
+    if (typeof window !== 'undefined') {
+      setInterval(() => {
+        if ((window as any).lucide) (window as any).lucide.createIcons();
+      }, 500);
+    }
   }
 }
