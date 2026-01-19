@@ -58,9 +58,10 @@ export class AuthService {
     let { data: { session } } = await this.supabase.client.auth.getSession();
 
     // Se houver um token na URL, vamos dar um tempo para o Supabase processar antes de marcar como inicializado sem usuário
-    const hasToken = window.location.href.includes('access_token=') ||
-      window.location.href.includes('code=') ||
-      window.location.href.includes('token_hash=');
+    const currentUrl = window.location.href;
+    const hasToken = currentUrl.includes('access_token=') ||
+      currentUrl.includes('code=') ||
+      currentUrl.includes('token_hash=');
 
     if (!session && hasToken) {
       let retryCount = 0;
@@ -109,7 +110,9 @@ export class AuthService {
     const { error } = await this.supabase.client.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin
+        // Para rotas com Hash (#), precisamos incluir o hash explicitamente na volta
+        // Isso resulta em algo como: https://dominio.com/#/login#access_token=...
+        emailRedirectTo: window.location.origin + '/#/login'
       }
     });
     return { error };
